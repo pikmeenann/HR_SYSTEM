@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <title>Attendance Dashboard</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
     * {
@@ -189,6 +190,9 @@
   </div>
 
   <script>
+    const LIFF_ID = '2010317944-g20xBWI1';
+      let lineUid = '';
+      let dashboardAccess = null;
     const GAS_API_URL =
       'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
 
@@ -202,7 +206,11 @@
     }
 
     async function loadDashboard() {
-      const branchId = document.getElementById('branchSelect').value;
+      let branchId = document.getElementById('branchSelect').value;
+
+    if (dashboardAccess && dashboardAccess.access_level === 'BRANCH') {
+      branchId = dashboardAccess.branch_id;
+    };
 
       if (!branchId) {
         alert('กรุณาเลือกสาขา');
@@ -313,6 +321,56 @@
         minute: '2-digit'
       });
     }
+
+    async function main() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+    lineUid = profile.userId;
+
+    const access = await callApi({
+      action: 'getDashboardAccess',
+      line_uid: lineUid
+    });
+
+    if (!access.success) {
+      document.getElementById('app').innerHTML =
+        '<div class="card error">' + access.message + '</div>';
+      return;
+    }
+
+    dashboardAccess = access;
+
+    setupDashboardAccess(access);
+
+  } catch (err) {
+    document.getElementById('app').innerHTML =
+      '<div class="card error">' + (err.message || err) + '</div>';
+  }
+}
+
+function setupDashboardAccess(access) {
+  const branchSelect = document.getElementById('branchSelect');
+
+  if (access.access_level === 'ALL') {
+    branchSelect.disabled = false;
+    return;
+  }
+
+  if (access.access_level === 'BRANCH') {
+    branchSelect.value = access.branch_id;
+    branchSelect.disabled = true;
+    loadDashboard();
+  }
+}
+    
+    main();
   </script>
 </body>
 </html>
