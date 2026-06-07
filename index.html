@@ -322,15 +322,24 @@
   `;
 }
 
- async function submitAction(action) {
+async function submitAction(action) {
+  if (window.isSubmitting) return;
+  window.isSubmitting = true;
+
   const ok = confirm('ยืนยันทำรายการนี้?');
-  if (!ok) return;
+  if (!ok) {
+    window.isSubmitting = false;
+    return;
+  }
 
   let photoBase64 = '';
 
   if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
     photoBase64 = await captureFreshPhoto();
-    if (!photoBase64) return;
+    if (!photoBase64) {
+      window.isSubmitting = false;
+      return;
+    }
   }
 
   try {
@@ -365,6 +374,8 @@
 
   } catch (err) {
     showError(err.message || err);
+  } finally {
+    window.isSubmitting = false;
   }
 }
 
