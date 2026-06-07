@@ -337,19 +337,21 @@
     showLoading('กำลังบันทึกข้อมูล...');
 
     const res = await callApi({
-      action: 'recordAttendanceAction',
-      data: {
-        employee_code: pageData.employee_code,
-        check_type: action,
-        gps_lat: gps.lat,
-        gps_lng: gps.lng,
-        photo_base64: photoBase64,
-        device_info: navigator.userAgent,
-        os: getOS(),
-        app_version: 'LIFF_V2_CAMERA',
-        note: 'บันทึกจาก LIFF พร้อมรูปถ่าย'
-      }
-    });
+  action: 'recordAttendanceAction',
+  data: {
+    employee_code: pageData.employee_code,
+    check_type: action,
+    gps_lat: gps.lat,
+    gps_lng: gps.lng,
+    photo_base64: photoBase64,
+    device_info: navigator.userAgent,
+    os: getOS(),
+    app_version: 'LIFF_V2_CAMERA',
+    note: 'บันทึกจาก LIFF พร้อมรูปถ่าย'
+  }
+});
+
+alert(JSON.stringify(res));
 
     if (!res.success) {
       showError(res.message || 'บันทึกไม่สำเร็จ');
