@@ -323,43 +323,46 @@
 }
 
     async function submitAction(action) {
-      const ok = confirm('ยืนยันทำรายการนี้?');
-      if (!ok) return;
+  const ok = confirm('ยืนยันทำรายการนี้?');
+  if (!ok) return;
 
-      try {
-        showLoading('กำลังตรวจตำแหน่ง...');
+  const photoBase64 = await captureFreshPhoto();
+  if (!photoBase64) return;
 
-        const gps = await getCurrentLocation();
+  try {
+    showLoading('กำลังตรวจตำแหน่ง...');
 
-        showLoading('กำลังบันทึกข้อมูล...');
+    const gps = await getCurrentLocation();
 
-        const res = await callApi({
-          action: 'recordAttendanceAction',
-          data: {
-            employee_code: pageData.employee_code,
-            check_type: action,
-            gps_lat: gps.lat,
-            gps_lng: gps.lng,
-            photo_url: 'photo-will-be-added-later',
-            device_info: navigator.userAgent,
-            os: getOS(),
-            app_version: 'LIFF_V1',
-            note: 'บันทึกจาก LIFF'
-          }
-        });
+    showLoading('กำลังบันทึกข้อมูล...');
 
-        if (!res.success) {
-          showError(res.message || 'บันทึกไม่สำเร็จ');
-          return;
-        }
-
-        alert('บันทึกสำเร็จ');
-        await loadAttendanceData();
-
-      } catch (err) {
-        showError(err.message || err);
+    const res = await callApi({
+      action: 'recordAttendanceAction',
+      data: {
+        employee_code: pageData.employee_code,
+        check_type: action,
+        gps_lat: gps.lat,
+        gps_lng: gps.lng,
+        photo_base64: photoBase64,
+        device_info: navigator.userAgent,
+        os: getOS(),
+        app_version: 'LIFF_V2_CAMERA',
+        note: 'บันทึกจาก LIFF พร้อมรูปถ่าย'
       }
+    });
+
+    if (!res.success) {
+      showError(res.message || 'บันทึกไม่สำเร็จ');
+      return;
     }
+
+    alert('บันทึกสำเร็จ');
+    await loadAttendanceData();
+
+  } catch (err) {
+    showError(err.message || err);
+  }
+}
 
     function getCurrentLocation() {
       return new Promise(function(resolve, reject) {
@@ -450,6 +453,90 @@
       `;
     }
 
+function captureFreshPhoto() {
+  return new Promise(function(resolve) {
+    const app = document.getElementById('app');
+
+    app.innerHTML = `
+      <div class="hello">ถ่ายรูปยืนยัน</div>
+      <div class="sub">กรุณาถ่ายรูปสดก่อนบันทึกเวลา</div>
+
+      <video id="cameraPreview" autoplay playsinline style="
+        width:100%;
+        border-radius:20px;
+        background:#000;
+        margin-bottom:14px;
+      "></video>
+
+      <canvas id="photoCanvas" style="display:none;"></canvas>
+
+      <button class="btn" id="takePhotoBtn">📸 ถ่ายรูป</button>
+      <button class="btn orange" id="cancelPhotoBtn">ยกเลิก</button>
+
+      <div class="note">
+        ต้องถ่ายรูปจากกล้องเท่านั้น ไม่สามารถเลือกรูปจากอัลบั้มได้
+      </div>
+    `;
+
+    const video = document.getElementById('cameraPreview');
+    const canvas = document.getElementById('photoCanvas');
+    const takeBtn = document.getElementById('takePhotoBtn');
+    const cancelBtn = document.getElementById('cancelPhotoBtn');
+
+    let stream = null;
+
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user'
+      },
+      audio: false
+    })
+    .then(function(s) {
+      stream = s;
+      video.srcObject = stream;
+    })
+    .catch(function(err) {
+      showError('ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการใช้งานกล้อง');
+      resolve(null);
+    });
+
+    takeBtn.onclick = function() {
+      if (!stream) {
+        alert('กล้องยังไม่พร้อม');
+        return;
+      }
+
+      const width = video.videoWidth || 720;
+      const height = video.videoHeight || 960;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, width, height);
+
+      const photoBase64 = canvas.toDataURL('image/jpeg', 0.82);
+
+      stopCameraStream(stream);
+
+      resolve(photoBase64);
+    };
+
+    cancelBtn.onclick = function() {
+      if (stream) stopCameraStream(stream);
+      loadAttendanceData();
+      resolve(null);
+    };
+  });
+}
+
+
+function stopCameraStream(stream) {
+  stream.getTracks().forEach(function(track) {
+    track.stop();
+  });
+}
+    
     main();
   </script>
 </body>
