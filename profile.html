@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>My Profile</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 430px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      margin-bottom: 14px;
+    }
+
+    .hello {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .sub {
+      color: #777;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .info {
+      background: #eef6e8;
+      border-radius: 18px;
+      padding: 14px;
+      line-height: 1.8;
+      font-size: 15px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .box {
+      background: #fff7e8;
+      border-radius: 18px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .num {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .label {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .loading,
+    .error {
+      text-align: center;
+      padding: 40px 10px;
+      color: #777;
+    }
+
+    .error {
+      background: #fff0f0;
+      color: #a33;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div id="app" class="card">
+      <div class="loading">กำลังโหลดข้อมูล...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-KmmsVa0F';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        const res = await callApi({
+          action: 'getMyProfile',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        renderProfile(res);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    function renderProfile(res) {
+      const p = res.profile || {};
+      const l = res.leave_balance || {};
+      const app = document.getElementById('app');
+
+      app.innerHTML = `
+        <div class="hello">สวัสดี ${p.nickname || ''}</div>
+        <div class="sub">ข้อมูลพนักงานของฉัน</div>
+
+        <div class="info">
+          รหัสพนักงาน: <b>${p.employee_code || '-'}</b><br>
+          ชื่อ: ${p.first_name || ''} ${p.last_name || ''}<br>
+          สาขา: ${p.branch_id || '-'}<br>
+          ตำแหน่ง: ${p.position || '-'}<br>
+          สถานะ: ${p.employment_status || '-'} / ${p.status || '-'}<br>
+          เริ่มงาน: ${formatDate(p.start_date)}
+        </div>
+
+        <br>
+
+        <div class="grid">
+          <div class="box">
+            <div class="num">${l.sick_remaining || 0}</div>
+            <div class="label">ลาป่วยคงเหลือ</div>
+          </div>
+
+          <div class="box">
+            <div class="num">${l.vacation_remaining || 0}</div>
+            <div class="label">พักร้อนคงเหลือ</div>
+          </div>
+
+          <div class="box">
+            <div class="num">${l.personal_remaining || 0}</div>
+            <div class="label">ลากิจคงเหลือ</div>
+          </div>
+
+          <div class="box">
+            <div class="num">${l.hot_balance || 0}</div>
+            <div class="label">HOT คงเหลือ</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML = `
+        <div class="error">${message}</div>
+      `;
+    }
+
+    main();
+  </script>
+</body>
+</html>
