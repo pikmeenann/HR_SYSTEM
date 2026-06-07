@@ -96,6 +96,23 @@
       padding: 16px;
       line-height: 1.6;
     }
+
+    .label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 14px 0 6px;
+      color: #555;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      background: #fff;
+    }
   </style>
 </head>
 
@@ -134,6 +151,117 @@
       }
     }
 
+    function renderRegistrationForm() {
+  const app = document.getElementById('app');
+
+  app.innerHTML = `
+    <div class="hello">สมัครเข้าระบบพนักงาน</div>
+    <div class="sub">กรอกข้อมูลเบื้องต้นเพื่อให้ HR อนุมัติ</div>
+
+    <label>สาขา</label>
+    <select id="regBranch" class="input">
+      <option value="">เลือกสาขา</option>
+      <option value="P EV">P EV</option>
+      <option value="P LP">P LP</option>
+      <option value="P PK">P PK</option>
+      <option value="P BN">P BN</option>
+      <option value="P R9">P R9</option>
+      <option value="P R3">P R3</option>
+      <option value="P FI">P FI</option>
+      <option value="P SC">P SC</option>
+      <option value="P R2">P R2</option>
+      <option value="C EV">C EV</option>
+      <option value="C LP">C LP</option>
+      <option value="C PK">C PK</option>
+      <option value="C BN">C BN</option>
+      <option value="C R9">C R9</option>
+      <option value="C R3">C R3</option>
+      <option value="C CL">C CL</option>
+      <option value="C R2">C R2</option>
+    </select>
+
+    <label>ชื่อเล่น</label>
+    <input id="regNickname" class="input" placeholder="เช่น น้ำ">
+
+    <label>ชื่อจริง</label>
+    <input id="regFirstName" class="input" placeholder="ชื่อจริง">
+
+    <label>นามสกุล</label>
+    <input id="regLastName" class="input" placeholder="นามสกุล">
+
+    <label>เบอร์โทร</label>
+    <input id="regPhone" class="input" placeholder="เบอร์ที่ติดต่อได้" inputmode="tel">
+
+    <label>ประเภทพนักงาน</label>
+    <select id="regEmployeeType" class="input">
+      <option value="THAI">คนไทย</option>
+      <option value="FOREIGN_REGISTERED">ต่างชาติ มีเอกสาร</option>
+      <option value="FOREIGN_UNREGISTERED">ต่างชาติ รอเอกสาร</option>
+    </select>
+
+    <label>ภาษา</label>
+    <select id="regLanguage" class="input">
+      <option value="TH">ไทย</option>
+      <option value="MM">พม่า</option>
+      <option value="LA">ลาว</option>
+      <option value="EN">อังกฤษ</option>
+    </select>
+
+    <button class="btn" onclick="submitRegistration()">ส่งข้อมูลให้ HR</button>
+
+    <div class="note">
+      หลังส่งข้อมูลแล้ว กรุณารอ HR ตรวจสอบและอนุมัติก่อนใช้งานระบบเช็คอิน
+    </div>
+  `;
+}
+
+    async function submitRegistration() {
+  const data = {
+    line_uid: lineUid,
+    line_display_name: '',
+    line_picture_url: '',
+    home_branch_id: document.getElementById('regBranch').value,
+    nickname: document.getElementById('regNickname').value.trim(),
+    first_name: document.getElementById('regFirstName').value.trim(),
+    last_name: document.getElementById('regLastName').value.trim(),
+    phone: document.getElementById('regPhone').value.trim(),
+    employee_type: document.getElementById('regEmployeeType').value,
+    preferred_language: document.getElementById('regLanguage').value,
+    position: 'Staff',
+    note: 'สมัครผ่าน LIFF'
+  };
+
+  if (!data.home_branch_id || !data.nickname || !data.first_name || !data.last_name) {
+    alert('กรุณากรอก สาขา / ชื่อเล่น / ชื่อจริง / นามสกุล');
+    return;
+  }
+
+  showLoading('กำลังส่งข้อมูลให้ HR...');
+
+  try {
+    const res = await callApi({
+      action: 'registerEmployeeRequest',
+      data: data
+    });
+
+    if (!res.success) {
+      showError(res.message || 'ส่งข้อมูลไม่สำเร็จ');
+      return;
+    }
+
+    document.getElementById('app').innerHTML = `
+      <div class="hello">ส่งข้อมูลเรียบร้อย</div>
+      <div class="pill">
+        ระบบได้รับข้อมูลสมัครของคุณแล้ว<br>
+        กรุณารอ HR ตรวจสอบและอนุมัติ
+      </div>
+    `;
+
+  } catch (err) {
+    showError(err.message || err);
+  }
+}
+
     async function callApi(payload) {
       const res = await fetch(GAS_API_URL, {
         method: 'POST',
@@ -156,41 +284,39 @@
     }
 
     function render(res) {
-      const app = document.getElementById('app');
+  const app = document.getElementById('app');
 
-      if (!res.success) {
-        app.innerHTML = `
-          <div class="error">${res.message}</div>
-        `;
-        return;
-      }
+  if (!res.success) {
+    renderRegistrationForm();
+    return;
+  }
 
-      const buttons = res.buttons.map(function(btn, index) {
-        const color = index === 0 ? '' : 'orange';
-        return `
-          <button class="btn ${color}" onclick="submitAction('${btn.action}')">
-            ${btn.label}
-          </button>
-        `;
-      }).join('');
+  const buttons = res.buttons.map(function(btn, index) {
+    const color = index === 0 ? '' : 'orange';
+    return `
+      <button class="btn ${color}" onclick="submitAction('${btn.action}')">
+        ${btn.label}
+      </button>
+    `;
+  }).join('');
 
-      app.innerHTML = `
-        <div class="hello">สวัสดี ${res.nickname || ''}</div>
-        <div class="sub">สาขา ${res.branch_id || '-'}</div>
+  app.innerHTML = `
+    <div class="hello">สวัสดี ${res.nickname || ''}</div>
+    <div class="sub">สาขา ${res.branch_id || '-'}</div>
 
-        <div class="pill">
-          สถานะตอนนี้: <b>${translateStatus(res.current_status)}</b><br>
-          รายการล่าสุด: ${translateAction(res.last_action) || '-'}<br>
-          เวลา: ${formatTime(res.last_action_time)}
-        </div>
+    <div class="pill">
+      สถานะตอนนี้: <b>${translateStatus(res.current_status)}</b><br>
+      รายการล่าสุด: ${translateAction(res.last_action) || '-'}<br>
+      เวลา: ${formatTime(res.last_action_time)}
+    </div>
 
-        ${buttons || '<div class="note">วันนี้บันทึกครบแล้ว</div>'}
+    ${buttons || '<div class="note">วันนี้บันทึกครบแล้ว</div>'}
 
-        <div class="note">
-          ระบบจะบันทึกเวลา ตำแหน่ง และรูปถ่ายเพื่อยืนยันการเข้างาน
-        </div>
-      `;
-    }
+    <div class="note">
+      ระบบจะบันทึกเวลา ตำแหน่ง และรูปถ่ายเพื่อยืนยันการเข้างาน
+    </div>
+  `;
+}
 
     async function submitAction(action) {
       const ok = confirm('ยืนยันทำรายการนี้?');
