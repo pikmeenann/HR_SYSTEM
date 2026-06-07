@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Attendance Dashboard</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      margin-bottom: 14px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .sub {
+      color: #777;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .box {
+      background: #eef6e8;
+      border-radius: 16px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .box .num {
+      font-size: 26px;
+      font-weight: 800;
+    }
+
+    .box .label {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .row {
+      background: #fff;
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    .name {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .meta {
+      font-size: 13px;
+      color: #777;
+      line-height: 1.6;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 8px;
+      background: #eee;
+    }
+
+    .WORKING {
+      background: #e4f4df;
+      color: #477a37;
+    }
+
+    .ON_BREAK {
+      background: #fff0d6;
+      color: #9a6400;
+    }
+
+    .CHECKED_OUT {
+      background: #eee;
+      color: #555;
+    }
+
+    .NOT_CHECKED_IN {
+      background: #ffe2e2;
+      color: #a33;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 800;
+      background: #7fb069;
+      color: white;
+      margin-top: 10px;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      background: #fff;
+      margin-top: 10px;
+    }
+
+    .loading,
+    .error {
+      padding: 28px 10px;
+      text-align: center;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">สถานะพนักงานวันนี้</div>
+      <div class="sub">เลือกสาขาเพื่อดูคนหน้างาน</div>
+
+      <select id="branchSelect" class="input">
+        <option value="">เลือกสาขา</option>
+        <option value="P EV">P EV - PikMee อีสท์วิลล์</option>
+        <option value="P LP">P LP - PikMee ลาดพร้าว</option>
+        <option value="P PK">P PK - PikMee ปิ่นเกล้า</option>
+        <option value="P BN">P BN - PikMee บางนา</option>
+        <option value="P R9">P R9 - PikMee พระราม9</option>
+        <option value="P R3">P R3 - PikMee พระราม3</option>
+        <option value="P FI">P FI - PikMee แฟชั่น</option>
+        <option value="P SC">P SC - PikMee สีลม</option>
+        <option value="P R2">P R2 - PikMee พระราม2</option>
+        <option value="C EV">C EV - CadoCado อีสท์วิลล์</option>
+        <option value="C LP">C LP - CadoCado ลาดพร้าว</option>
+        <option value="C PK">C PK - CadoCado ปิ่นเกล้า</option>
+        <option value="C BN">C BN - CadoCado บางนา</option>
+        <option value="C R9">C R9 - CadoCado พระราม9</option>
+        <option value="C R3">C R3 - CadoCado พระราม3</option>
+        <option value="C CL">C CL - CadoCado ชิดลม</option>
+        <option value="C R2">C R2 - CadoCado พระราม2</option>
+      </select>
+
+      <button class="btn" onclick="loadDashboard()">ดูสถานะ</button>
+    </div>
+
+    <div id="app"></div>
+  </div>
+
+  <script>
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function loadDashboard() {
+      const branchId = document.getElementById('branchSelect').value;
+
+      if (!branchId) {
+        alert('กรุณาเลือกสาขา');
+        return;
+      }
+
+      const app = document.getElementById('app');
+      app.innerHTML = '<div class="card loading">กำลังโหลดข้อมูล...</div>';
+
+      try {
+        const res = await callApi({
+          action: 'getBranchAttendanceDashboard',
+          branch_id: branchId
+        });
+
+        if (!res.success) {
+          app.innerHTML = '<div class="card error">' + (res.message || 'โหลดข้อมูลไม่สำเร็จ') + '</div>';
+          return;
+        }
+
+        renderDashboard(res);
+
+      } catch (err) {
+        app.innerHTML = '<div class="card error">' + (err.message || err) + '</div>';
+      }
+    }
+
+    function renderDashboard(res) {
+      const app = document.getElementById('app');
+      const s = res.summary || {};
+
+      const rows = (res.rows || []).map(function(row) {
+        return `
+          <div class="row">
+            <div class="name">${row.nickname || '-'} <span style="font-size:13px;color:#888;">${row.employee_code}</span></div>
+            <div class="meta">
+              ${row.full_name || ''}<br>
+              รายการล่าสุด: ${translateAction(row.last_action) || '-'}<br>
+              เวลา: ${formatTime(row.last_action_time)}
+            </div>
+            <div class="status ${row.current_status}">
+              ${translateStatus(row.current_status)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      app.innerHTML = `
+        <div class="card">
+          <div class="title">${res.branch_id}</div>
+          <div class="sub">วันที่ ${res.date}</div>
+
+          <div class="summary">
+            <div class="box">
+              <div class="num">${s.WORKING || 0}</div>
+              <div class="label">กำลังทำงาน</div>
+            </div>
+            <div class="box">
+              <div class="num">${s.ON_BREAK || 0}</div>
+              <div class="label">พักอยู่</div>
+            </div>
+            <div class="box">
+              <div class="num">${s.NOT_CHECKED_IN || 0}</div>
+              <div class="label">ยังไม่เข้างาน</div>
+            </div>
+            <div class="box">
+              <div class="num">${s.CHECKED_OUT || 0}</div>
+              <div class="label">ออกงานแล้ว</div>
+            </div>
+          </div>
+        </div>
+
+        ${rows || '<div class="card loading">ไม่พบพนักงานในสาขานี้</div>'}
+      `;
+    }
+
+    function translateStatus(status) {
+      const map = {
+        NOT_CHECKED_IN: 'ยังไม่เข้างาน',
+        WORKING: 'กำลังทำงาน',
+        ON_BREAK: 'กำลังพัก',
+        CHECKED_OUT: 'ออกงานแล้ว',
+        MISSING_CHECKOUT: 'ยังไม่ได้เช็คเอาท์'
+      };
+
+      return map[status] || status || '-';
+    }
+
+    function translateAction(action) {
+      const map = {
+        CHECK_IN: 'เช็คอิน',
+        BREAK_OUT: 'ไปพัก',
+        BREAK_IN: 'กลับจากพัก',
+        CHECK_OUT: 'ออกงาน'
+      };
+
+      return map[action] || action || '-';
+    }
+
+    function formatTime(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  </script>
+</body>
+</html>
