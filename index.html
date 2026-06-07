@@ -287,9 +287,13 @@
   const app = document.getElementById('app');
 
   if (!res.success) {
+  if (res.message && res.message.indexOf('ไม่พบข้อมูลพนักงาน') !== -1) {
     renderRegistrationForm();
-    return;
+  } else {
+    showError(res.message || 'โหลดข้อมูลไม่สำเร็จ');
   }
+  return;
+}
 
   const buttons = res.buttons.map(function(btn, index) {
     const color = index === 0 ? '' : 'orange';
