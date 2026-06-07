@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Staff Check-in</title>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 430px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+    }
+
+    .hello {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .sub {
+      color: #777;
+      font-size: 14px;
+      margin-bottom: 18px;
+    }
+
+    .pill {
+      background: #eef6e8;
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 18px;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 18px;
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      cursor: pointer;
+      background: #7fb069;
+      color: white;
+    }
+
+    .btn.orange {
+      background: #f4a259;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .note {
+      font-size: 13px;
+      color: #777;
+      line-height: 1.6;
+      margin-top: 12px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px 10px;
+      color: #777;
+    }
+
+    .error {
+      background: #fff0f0;
+      color: #a33;
+      border-radius: 16px;
+      padding: 16px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card" id="app">
+      <div class="loading">กำลังโหลดข้อมูล...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = 'ใส่_LIFF_ID_ตรงนี้';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+    let pageData = null;
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        await loadAttendanceData();
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function loadAttendanceData() {
+      showLoading('กำลังโหลดข้อมูลพนักงาน...');
+
+      const res = await callApi({
+        action: 'getAttendancePageData',
+        line_uid: lineUid
+      });
+
+      pageData = res;
+      render(res);
+    }
+
+    function render(res) {
+      const app = document.getElementById('app');
+
+      if (!res.success) {
+        app.innerHTML = `
+          <div class="error">${res.message}</div>
+        `;
+        return;
+      }
+
+      const buttons = res.buttons.map(function(btn, index) {
+        const color = index === 0 ? '' : 'orange';
+        return `
+          <button class="btn ${color}" onclick="submitAction('${btn.action}')">
+            ${btn.label}
+          </button>
+        `;
+      }).join('');
+
+      app.innerHTML = `
+        <div class="hello">สวัสดี ${res.nickname || ''}</div>
+        <div class="sub">สาขา ${res.branch_id || '-'}</div>
+
+        <div class="pill">
+          สถานะตอนนี้: <b>${translateStatus(res.current_status)}</b><br>
+          รายการล่าสุด: ${translateAction(res.last_action) || '-'}<br>
+          เวลา: ${formatTime(res.last_action_time)}
+        </div>
+
+        ${buttons || '<div class="note">วันนี้บันทึกครบแล้ว</div>'}
+
+        <div class="note">
+          ระบบจะบันทึกเวลา ตำแหน่ง และรูปถ่ายเพื่อยืนยันการเข้างาน
+        </div>
+      `;
+    }
+
+    async function submitAction(action) {
+      const ok = confirm('ยืนยันทำรายการนี้?');
+      if (!ok) return;
+
+      try {
+        showLoading('กำลังตรวจตำแหน่ง...');
+
+        const gps = await getCurrentLocation();
+
+        showLoading('กำลังบันทึกข้อมูล...');
+
+        const res = await callApi({
+          action: 'recordAttendanceAction',
+          data: {
+            employee_code: pageData.employee_code,
+            check_type: action,
+            gps_lat: gps.lat,
+            gps_lng: gps.lng,
+            photo_url: 'photo-will-be-added-later',
+            device_info: navigator.userAgent,
+            os: getOS(),
+            app_version: 'LIFF_V1',
+            note: 'บันทึกจาก LIFF'
+          }
+        });
+
+        if (!res.success) {
+          showError(res.message || 'บันทึกไม่สำเร็จ');
+          return;
+        }
+
+        alert('บันทึกสำเร็จ');
+        await loadAttendanceData();
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function getCurrentLocation() {
+      return new Promise(function(resolve, reject) {
+        if (!navigator.geolocation) {
+          reject(new Error('เครื่องนี้ไม่รองรับ GPS'));
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            resolve({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude
+            });
+          },
+          function(err) {
+            reject(new Error('ไม่สามารถอ่านตำแหน่งได้ กรุณาอนุญาต GPS'));
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 0
+          }
+        );
+      });
+    }
+
+    function translateStatus(status) {
+      const map = {
+        NOT_CHECKED_IN: 'ยังไม่เข้างาน',
+        WORKING: 'กำลังทำงาน',
+        ON_BREAK: 'กำลังพัก',
+        CHECKED_OUT: 'ออกงานแล้ว',
+        MISSING_CHECKOUT: 'ยังไม่ได้เช็คเอาท์'
+      };
+
+      return map[status] || status || '-';
+    }
+
+    function translateAction(action) {
+      const map = {
+        CHECK_IN: 'เช็คอินเข้างาน',
+        BREAK_OUT: 'ไปพัก',
+        BREAK_IN: 'กลับเข้าทำงาน',
+        CHECK_OUT: 'เช็คเอาท์ออกงาน'
+      };
+
+      return map[action] || action || '-';
+    }
+
+    function formatTime(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function getOS() {
+      const ua = navigator.userAgent || '';
+
+      if (/android/i.test(ua)) return 'Android';
+      if (/iPad|iPhone|iPod/.test(ua)) return 'iOS';
+      if (/Windows/.test(ua)) return 'Windows';
+      if (/Mac/.test(ua)) return 'Mac';
+
+      return 'Unknown';
+    }
+
+    function showLoading(text) {
+      document.getElementById('app').innerHTML = `
+        <div class="loading">${text || 'กำลังโหลด...'}</div>
+      `;
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML = `
+        <div class="error">
+          ${message}
+          <br><br>
+          <button class="btn" onclick="main()">ลองใหม่</button>
+        </div>
+      `;
+    }
+
+    main();
+  </script>
+</body>
+</html>
