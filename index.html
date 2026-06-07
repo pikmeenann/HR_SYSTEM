@@ -322,12 +322,16 @@
   `;
 }
 
-    async function submitAction(action) {
+ async function submitAction(action) {
   const ok = confirm('ยืนยันทำรายการนี้?');
   if (!ok) return;
 
-  const photoBase64 = await captureFreshPhoto();
-  if (!photoBase64) return;
+  let photoBase64 = '';
+
+  if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
+    photoBase64 = await captureFreshPhoto();
+    if (!photoBase64) return;
+  }
 
   try {
     showLoading('กำลังตรวจตำแหน่ง...');
@@ -337,21 +341,19 @@
     showLoading('กำลังบันทึกข้อมูล...');
 
     const res = await callApi({
-  action: 'recordAttendanceAction',
-  data: {
-    employee_code: pageData.employee_code,
-    check_type: action,
-    gps_lat: gps.lat,
-    gps_lng: gps.lng,
-    photo_base64: photoBase64,
-    device_info: navigator.userAgent,
-    os: getOS(),
-    app_version: 'LIFF_V2_CAMERA',
-    note: 'บันทึกจาก LIFF พร้อมรูปถ่าย'
-  }
-});
-
-alert(JSON.stringify(res));
+      action: 'recordAttendanceAction',
+      data: {
+        employee_code: pageData.employee_code,
+        check_type: action,
+        gps_lat: gps.lat,
+        gps_lng: gps.lng,
+        photo_base64: photoBase64,
+        device_info: navigator.userAgent,
+        os: getOS(),
+        app_version: 'LIFF_V2_CAMERA',
+        note: 'บันทึกจาก LIFF'
+      }
+    });
 
     if (!res.success) {
       showError(res.message || 'บันทึกไม่สำเร็จ');
