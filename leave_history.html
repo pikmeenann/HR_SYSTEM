@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Leave History</title>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f7f3e8;
+  color:#2f2f2f;
+}
+
+.wrap{
+  max-width:430px;
+  margin:0 auto;
+  padding:20px;
+}
+
+.card{
+  background:#fff;
+  border-radius:24px;
+  padding:20px;
+  margin-bottom:12px;
+  box-shadow:0 8px 28px rgba(0,0,0,.08);
+}
+
+.title{
+  font-size:24px;
+  font-weight:800;
+}
+
+.sub{
+  color:#777;
+  font-size:14px;
+  margin-top:4px;
+}
+
+.row{
+  background:#fff;
+  border-radius:18px;
+  padding:14px;
+  margin-bottom:10px;
+  box-shadow:0 4px 16px rgba(0,0,0,.06);
+  line-height:1.7;
+  font-size:14px;
+}
+
+.pill{
+  display:inline-block;
+  padding:5px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  margin-top:6px;
+}
+
+.PENDING{
+  background:#fff4d9;
+  color:#a06a00;
+}
+
+.APPROVED{
+  background:#eaf8e4;
+  color:#3e7f28;
+}
+
+.REJECTED{
+  background:#ffe2e2;
+  color:#b22222;
+}
+
+.loading,
+.empty,
+.error{
+  text-align:center;
+  padding:30px;
+}
+
+.error{
+  color:#b22222;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <div class="card">
+    <div class="title">ประวัติการลา</div>
+    <div class="sub" id="employeeInfo">
+      กำลังโหลด...
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="card loading">
+      กำลังโหลดข้อมูล...
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+const LIFF_ID = '2010317944-2vwp7PAW';
+
+const GAS_API_URL =
+'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+async function callApi(payload){
+  const res = await fetch(GAS_API_URL,{
+    method:'POST',
+    body:JSON.stringify(payload)
+  });
+
+  return await res.json();
+}
+
+async function main(){
+
+  try{
+
+    await liff.init({
+      liffId:LIFF_ID
+    });
+
+    if(!liff.isLoggedIn()){
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+
+    const res = await callApi({
+      action:'getMyLeaveHistory',
+      line_uid:profile.userId
+    });
+
+    if(!res.success){
+      showError(res.message);
+      return;
+    }
+
+    renderData(res);
+
+  }catch(err){
+    showError(err.message || err);
+  }
+}
+
+function renderData(res){
+
+  const emp = res.employee || {};
+  const rows = res.rows || [];
+
+  document.getElementById('employeeInfo').innerHTML =
+    (emp.nickname || '') +
+    ' · ' +
+    (emp.employee_code || '');
+
+  const app = document.getElementById('app');
+
+  if(!rows.length){
+
+    app.innerHTML =
+      '<div class="card empty">ยังไม่มีประวัติการลา</div>';
+
+    return;
+  }
+
+  app.innerHTML = rows.map(function(r){
+
+    return `
+      <div class="row">
+
+        <b>${translateLeaveType(r.leave_type)}</b><br>
+
+        วันที่:
+        ${formatDate(r.start_date)}
+        -
+        ${formatDate(r.end_date)}
+        <br>
+
+        จำนวน:
+        ${r.total_days || 0}
+        วัน
+        <br>
+
+        เหตุผล:
+        ${r.reason || '-'}
+        <br>
+
+        ผู้อนุมัติ:
+        ${r.approved_by || '-'}
+        <br>
+
+        <div class="pill ${r.status}">
+          ${translateStatus(r.status)}
+        </div>
+
+      </div>
+    `;
+
+  }).join('');
+}
+
+function translateLeaveType(type){
+
+  const map = {
+    SICK:'ลาป่วย',
+    PERSONAL:'ลากิจ',
+    VACATION:'พักร้อน',
+    HOT:'ใช้ HOT'
+  };
+
+  return map[type] || type || '-';
+}
+
+function translateStatus(status){
+
+  const map = {
+    PENDING:'รออนุมัติ',
+    APPROVED:'อนุมัติแล้ว',
+    REJECTED:'ไม่อนุมัติ'
+  };
+
+  return map[status] || status || '-';
+}
+
+function formatDate(value){
+
+  if(!value) return '-';
+
+  const d = new Date(value);
+
+  if(isNaN(d.getTime())) return value;
+
+  return d.toLocaleDateString('th-TH',{
+    year:'numeric',
+    month:'short',
+    day:'numeric'
+  });
+}
+
+function showError(message){
+
+  document.getElementById('app').innerHTML =
+  `
+  <div class="card error">
+    ${message}
+  </div>
+  `;
+}
+
+main();
+
+</script>
+
+</body>
+</html>
