@@ -79,7 +79,7 @@
   <div class="wrap">
     <div class="card">
       <div class="title">ตารางงานของฉัน</div>
-      <div class="sub">14 วันข้างหน้า</div>
+      <div class="sub" id="rangeText">รอบการทำงาน</div>
     </div>
 
     <div id="app">
@@ -135,8 +135,12 @@
         return;
       }
 
+      document.getElementById('rangeText').innerText =
+  formatDate(result.range_start) + ' - ' + formatDate(result.range_end);
+
       if (!result.days || !result.days.length) {
-        app.innerHTML = '<div class="card loading">ยังไม่มีตารางงาน</div>';
+        app.innerHTML =
+          '<div class="card loading">ยังไม่มีตารางงานในรอบนี้<br>กรุณารอ Manager ลงตารางงานให้</div>';
         return;
       }
 
