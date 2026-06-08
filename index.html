@@ -306,7 +306,7 @@
 
   app.innerHTML = `
     <div class="hello">สวัสดี ${res.nickname || ''}</div>
-    <div class="sub">สาขา ${res.branch_id || '-'}</div>
+    <div class="sub">สาขา ${res.branch_name || res.branch_id || '-'}</div>
 
     <div class="pill">
       สถานะตอนนี้: <b>${translateStatus(res.current_status)}</b><br>
