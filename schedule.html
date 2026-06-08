@@ -155,7 +155,7 @@
                   ? 'วันหยุด'
                   : `
                     กะ: ${translateShiftName(d.shift_name)}<br>
-                    เวลา: ${formatTimeOnly(d.start_time)} - ${formatTimeOnly(d.end_time)}<br>
+                    ${renderScheduleText(d)}
                     สาขา: ${d.branch_id || '-'}
                   `
               }
@@ -213,6 +213,31 @@
   };
 
   return map[shiftName] || shiftName || '-';
+}
+
+    function renderScheduleText(d) {
+  const shift = String(d.shift_name || '').trim();
+
+  if (shift === 'OFF') {
+    return 'วันหยุด';
+  }
+
+  if (shift === 'LEAVE') {
+    return 'ลา';
+  }
+
+  if (shift === 'SPECIAL') {
+    return `
+      เวลาพิเศษ: ${formatTimeOnly(d.start_time)} - ${formatTimeOnly(d.end_time)}<br>
+      สาขา: ${d.branch_id || '-'}
+    `;
+  }
+
+  return `
+    เวลาเข้างาน: ${formatTimeOnly(d.start_time)}<br>
+    เวลาออกงาน: ${formatTimeOnly(d.end_time)}<br>
+    สาขา: ${d.branch_id || '-'}
+  `;
 }
 
     main();
