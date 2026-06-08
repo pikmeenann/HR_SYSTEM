@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Employee Detail</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      margin-bottom: 14px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .sub, .meta {
+      color: #777;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .info {
+      background: #eef6e8;
+      border-radius: 18px;
+      padding: 14px;
+      line-height: 1.8;
+      font-size: 15px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .box {
+      background: #fff7e8;
+      border-radius: 18px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .num {
+      font-size: 26px;
+      font-weight: 800;
+    }
+
+    .label {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .row {
+      background: #fff;
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 8px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eef6e8;
+      color: #477a37;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .loading,
+    .error,
+    .empty {
+      text-align: center;
+      padding: 32px 10px;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 800;
+      background: #7fb069;
+      color: #fff;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div id="app">
+      <div class="card loading">กำลังโหลดข้อมูล...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-Iu21jArf';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        const employeeCode = getQueryParam('employee_code');
+
+        if (!employeeCode) {
+          showError('ไม่พบรหัสพนักงาน');
+          return;
+        }
+
+        const res = await callApi({
+          action: 'getEmployeeDetail',
+          line_uid: lineUid,
+          employee_code: employeeCode
+        });
+
+        if (!res.success) {
+          showError(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        renderDetail(res);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function renderDetail(res) {
+      const e = res.employee || {};
+      const l = res.leave_balance || {};
+      const schedules = res.next_schedules || [];
+      const attendance = res.recent_attendance || [];
+
+      const app = document.getElementById('app');
+
+      app.innerHTML = `
+        <div class="card">
+          <div class="title">👤 ${e.nickname || '-'}</div>
+          <div class="sub">${e.employee_code || '-'} · ${e.branch_id || '-'}</div>
+
+          <div class="info">
+            ชื่อ: ${e.full_name || '-'}<br>
+            ตำแหน่ง: ${e.position || '-'}<br>
+            Role: ${e.role || '-'}<br>
+            สถานะ: ${e.employment_status || '-'} / ${e.status || '-'}<br>
+            เริ่มงาน: ${formatDate(e.start_date)}<br>
+            วันผ่านโปร: ${formatDate(e.probation_end_date)}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">สิทธิ์ลา</div>
+
+          <div class="grid">
+            <div class="box">
+              <div class="num">${l.sick_remaining || 0}</div>
+              <div class="label">ลาป่วยคงเหลือ</div>
+            </div>
+
+            <div class="box">
+              <div class="num">${l.vacation_remaining || 0}</div>
+              <div class="label">พักร้อนคงเหลือ</div>
+            </div>
+
+            <div class="box">
+              <div class="num">${l.personal_remaining || 0}</div>
+              <div class="label">ลากิจคงเหลือ</div>
+            </div>
+
+            <div class="box">
+              <div class="num">${l.hot_balance || 0}</div>
+              <div class="label">HOT คงเหลือ</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">ตารางงานถัดไป</div>
+          ${renderSchedules(schedules)}
+        </div>
+
+        <div class="card">
+          <div class="section-title">ประวัติเข้างานล่าสุด</div>
+          ${renderAttendance(attendance)}
+        </div>
+
+        <button class="btn" onclick="history.back()">กลับ</button>
+      `;
+    }
+
+    function renderSchedules(list) {
+      if (!list.length) {
+        return '<div class="empty">ยังไม่มีตารางงานถัดไป</div>';
+      }
+
+      return list.map(function(s) {
+        const shift = String(s.shift_name || '');
+
+        let detail = '';
+
+        if (shift === 'OFF') {
+          detail = 'วันหยุด';
+        } else if (shift === 'LEAVE') {
+          detail = 'ลา';
+        } else {
+          detail =
+            'เวลา: ' + (s.start_time || '-') + ' - ' + (s.end_time || '-') + '<br>' +
+            'สาขา: ' + (s.branch_id || '-');
+        }
+
+        return `
+          <div class="row">
+            <b>${formatDate(s.date)}</b><br>
+            ${detail}
+            ${s.note ? '<br>หมายเหตุ: ' + s.note : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderAttendance(list) {
+      if (!list.length) {
+        return '<div class="empty">ยังไม่มีประวัติสรุปการเข้างาน</div>';
+      }
+
+      return list.map(function(a) {
+        return `
+          <div class="row">
+            <b>${formatDate(a.date)}</b><br>
+            เวลาเข้างาน: ${a.actual_in || '-'}<br>
+            เวลาออกงาน: ${a.actual_out || '-'}<br>
+            มาสาย: ${a.late_minutes || 0} นาที<br>
+            OT: ${a.ot_minutes || 0} นาที
+            <div class="pill">${translateAttendanceStatus(a.attendance_status)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function translateAttendanceStatus(status) {
+      const map = {
+        PRESENT: 'มาทำงาน',
+        ABSENT: 'ขาดงาน',
+        LEAVE: 'ลา',
+        OFF: 'วันหยุด'
+      };
+
+      return map[status] || status || '-';
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML =
+        '<div class="card error">' + message + '</div>';
+    }
+
+    main();
+  </script>
+</body>
+</html>
