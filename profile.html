@@ -199,8 +199,13 @@
         </div>
         
         <button class="btn" onclick="openContact()">
-  📞 ข้อมูลติดต่อและบุคคลฉุกเฉิน
-</button>
+        📞 ข้อมูลติดต่อและบุคคลฉุกเฉิน
+        </button>
+
+        <button class="btn" onclick="openAttendanceHistory()">
+        🕒 ประวัติการเข้างาน
+        </button>
+
       `;
     }
 
@@ -223,9 +228,14 @@
       `;
     }
 
-function openContact() {
-  window.location.href = 'https://liff.line.me/2010317944-VaiuSU2q';
-}
+    function openContact() {
+      window.location.href = 'https://liff.line.me/2010317944-VaiuSU2q';
+    }
+
+    function openAttendanceHistory() {
+      window.location.href =
+      'https://liff.line.me/ใส่_LIFF_ID_ATTENDANCE_HISTORY';
+    }
     
     main();
   </script>
