@@ -168,7 +168,7 @@
         <div class="info">
           รหัสพนักงาน: <b>${p.employee_code || '-'}</b><br>
           ชื่อ: ${p.first_name || ''} ${p.last_name || ''}<br>
-          สาขา: ${p.branch_id || '-'}<br>
+          สาขา: ${p.branch_name || p.branch_id || '-'}<br>
           ตำแหน่ง: ${p.position || '-'}<br>
           สถานะ: ${p.employment_status || '-'} / ${p.status || '-'}<br>
           เริ่มงาน: ${formatDate(p.start_date)}
