@@ -236,12 +236,14 @@
           <select id="mPeriod" class="input"></select>
 
           <label>เวลาเข้างาน</label>
-          <input id="mStartTime" class="input" type="time" value="09:00">
+          <input id="mStartTime" class="input" type="text" value="09:00" placeholder="09:00" inputmode="numeric">
 
           <label>เวลาออกงาน</label>
-          <input id="mEndTime" class="input" type="time" value="18:00">
+          <input id="mEndTime" class="input" type="text" value="18:00" placeholder="18:00" inputmode="numeric">
 
-          <div class="sub">กรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00, 18:00, 21:30</div>
+          <div class="sub">
+          กรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00, 18:00, 21:30
+          </div>
 
           <label>วันหยุดประจำสัปดาห์</label>
           <div class="days">
@@ -283,10 +285,10 @@
 
           <div id="dailyTimeArea">
             <label>เวลาเข้างาน</label>
-            <input id="dStartTime" class="input" type="time" value="09:00">
+            <input id="dStartTime" class="input" type="text" value="09:00" placeholder="09:00" inputmode="numeric">
 
             <label>เวลาออกงาน</label>
-            <input id="dEndTime" class="input" type="time" value="18:00">
+            <input id="dEndTime" class="input" type="text" value="18:00" placeholder="18:00" inputmode="numeric">
           </div>
 
           <label>หมายเหตุ</label>
@@ -393,6 +395,12 @@
           }
         });
 
+        if (!isValidTime24(startTime) || !isValidTime24(endTime)) {
+  alert('กรุณากรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00 หรือ 18:30');
+  window.isSubmitting = false;
+  return;
+}
+
         if (!res.success) {
           showError(res.message || 'สร้างตารางไม่สำเร็จ');
           return;
@@ -459,6 +467,16 @@
           }
         });
 
+        if (
+  shift !== 'OFF' &&
+  shift !== 'LEAVE' &&
+  (!isValidTime24(startTime) || !isValidTime24(endTime))
+) {
+  alert('กรุณากรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00 หรือ 18:30');
+  window.isSubmitting = false;
+  return;
+}
+
         if (!res.success) {
           showError(res.message || 'บันทึกไม่สำเร็จ');
           return;
@@ -497,20 +515,30 @@ function getPayrollPeriodsForSchedule() {
   const today = new Date();
 
   const current = getPayrollPeriodRange(today);
+
   const previousBase = new Date(current.startDate);
   previousBase.setDate(previousBase.getDate() - 1);
   const previous = getPayrollPeriodRange(previousBase);
 
+  const nextBase = new Date(current.endDate);
+  nextBase.setDate(nextBase.getDate() + 1);
+  const next = getPayrollPeriodRange(nextBase);
+
   return [
     {
-      label: 'รอบย้อนหลัง: ' + formatPeriodLabel(previous.startDate, previous.endDate),
+      label: 'รอบก่อนหน้า: ' + formatPeriodLabel(previous.startDate, previous.endDate),
       start: toDateInput(previous.startDate),
       end: toDateInput(previous.endDate)
     },
     {
-      label: 'รอบถัดไป: ' + formatPeriodLabel(current.startDate, current.endDate),
+      label: 'รอบปัจจุบัน: ' + formatPeriodLabel(current.startDate, current.endDate),
       start: toDateInput(current.startDate),
       end: toDateInput(current.endDate)
+    },
+    {
+      label: 'รอบถัดไป: ' + formatPeriodLabel(next.startDate, next.endDate),
+      start: toDateInput(next.startDate),
+      end: toDateInput(next.endDate)
     }
   ];
 }
@@ -550,6 +578,10 @@ function formatDateShort(d) {
     day: 'numeric',
     month: 'short'
   });
+}
+
+    function isValidTime24(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
     main();
