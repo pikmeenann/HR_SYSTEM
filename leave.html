@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Leave Request</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 430px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+    }
+
+    .hello {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .sub {
+      color: #777;
+      font-size: 14px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 14px 0 6px;
+      color: #555;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      background: #fff;
+    }
+
+    textarea.input {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 16px;
+      font-size: 18px;
+      font-weight: 800;
+      margin-top: 18px;
+      background: #7fb069;
+      color: white;
+    }
+
+    .note {
+      font-size: 13px;
+      color: #777;
+      line-height: 1.6;
+      margin-top: 12px;
+    }
+
+    .loading,
+    .error {
+      text-align: center;
+      padding: 40px 10px;
+      color: #777;
+    }
+
+    .error {
+      background: #fff0f0;
+      color: #a33;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card" id="app">
+      <div class="loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-LrxPSCiU';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+    let profileData = null;
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        const res = await callApi({
+          action: 'getMyProfile',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError(res.message || 'ไม่พบข้อมูลพนักงาน');
+          return;
+        }
+
+        profileData = res;
+        renderForm(res);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    function renderForm(res) {
+      const p = res.profile || {};
+      const app = document.getElementById('app');
+
+      app.innerHTML = `
+        <div class="hello">แจ้งลา</div>
+        <div class="sub">${p.nickname || ''} · ${p.branch_id || '-'}</div>
+
+        <label>ประเภทการลา</label>
+        <select id="leaveType" class="input">
+          <option value="">เลือกประเภทการลา</option>
+          <option value="SICK">ลาป่วย</option>
+          <option value="PERSONAL">ลากิจ</option>
+          <option value="VACATION">ลาพักร้อน</option>
+          <option value="OTHER">อื่นๆ</option>
+        </select>
+
+        <label>วันที่เริ่มลา</label>
+        <input id="startDate" type="date" class="input">
+
+        <label>วันที่สิ้นสุด</label>
+        <input id="endDate" type="date" class="input">
+
+        <label>เหตุผล</label>
+        <textarea id="reason" class="input" placeholder="ระบุเหตุผลการลา"></textarea>
+
+        <button class="btn" onclick="submitLeave()">ส่งคำขอลา</button>
+
+        <div class="note">
+          หลังส่งคำขอลาแล้ว กรุณารอหัวหน้าหรือ HR อนุมัติ
+        </div>
+      `;
+    }
+
+    async function submitLeave() {
+      if (window.isSubmitting) return;
+      window.isSubmitting = true;
+
+      const leaveType = document.getElementById('leaveType').value;
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const reason = document.getElementById('reason').value.trim();
+
+      if (!leaveType || !startDate || !endDate || !reason) {
+        alert('กรุณากรอกข้อมูลให้ครบ');
+        window.isSubmitting = false;
+        return;
+      }
+
+      document.getElementById('app').innerHTML =
+        '<div class="loading">กำลังส่งคำขอลา...</div>';
+
+      try {
+        const res = await callApi({
+          action: 'submitLeaveRequest',
+          data: {
+            line_uid: lineUid,
+            leave_type: leaveType,
+            start_date: startDate,
+            end_date: endDate,
+            reason: reason,
+            note: 'ส่งจาก LIFF'
+          }
+        });
+
+        if (!res.success) {
+          showError(res.message || 'ส่งคำขอลาไม่สำเร็จ');
+          return;
+        }
+
+        document.getElementById('app').innerHTML = `
+          <div class="hello">ส่งคำขอลาแล้ว</div>
+          <div class="sub">เลขที่คำขอ ${res.leave_id}</div>
+          <div class="note">
+            จำนวนวันที่ลา: ${res.total_days} วัน<br>
+            กรุณารอหัวหน้าหรือ HR อนุมัติ
+          </div>
+        `;
+
+      } catch (err) {
+        showError(err.message || err);
+      } finally {
+        window.isSubmitting = false;
+      }
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML = `
+        <div class="error">${message}</div>
+      `;
+    }
+
+    main();
+  </script>
+</body>
+</html>
