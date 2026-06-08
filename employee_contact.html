@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Employee Contact</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+    .wrap {
+      max-width: 430px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+    }
+    .hello {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .sub {
+      color: #777;
+      font-size: 14px;
+      margin-bottom: 18px;
+      line-height: 1.6;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 14px 0 6px;
+      color: #555;
+    }
+    .input {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      background: #fff;
+    }
+    textarea.input {
+      min-height: 90px;
+      resize: vertical;
+    }
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 16px;
+      font-size: 18px;
+      font-weight: 800;
+      margin-top: 18px;
+      background: #7fb069;
+      color: white;
+    }
+    .loading,
+    .error {
+      text-align: center;
+      padding: 34px 10px;
+      color: #777;
+    }
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card" id="app">
+      <div class="loading">กำลังโหลดข้อมูล...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-VaiuSU2q';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+    let contactData = null;
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    }
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        const res = await callApi({
+          action: 'getEmployeeContact',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        contactData = res.contact || {};
+        renderForm(res);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function renderForm(res) {
+      const emp = res.employee || {};
+      const c = res.contact || {};
+      const app = document.getElementById('app');
+
+      app.innerHTML = `
+        <div class="hello">ข้อมูลติดต่อ</div>
+        <div class="sub">
+          ${emp.nickname || ''} · ${emp.employee_code || ''}
+        </div>
+
+        <label>เบอร์โทร</label>
+        <input id="phone" class="input" inputmode="tel" value="${c.phone || ''}">
+
+        <label>ที่อยู่ตามทะเบียนบ้าน</label>
+        <textarea id="registeredAddress" class="input">${c.registered_address || ''}</textarea>
+
+        <label>ที่อยู่ปัจจุบันตรงกับทะเบียนบ้านหรือไม่</label>
+        <select id="currentAddressSame" class="input" onchange="toggleCurrentAddress()">
+          <option value="TRUE" ${c.current_address_same === 'TRUE' ? 'selected' : ''}>ตรงกัน</option>
+          <option value="FALSE" ${c.current_address_same === 'FALSE' ? 'selected' : ''}>ไม่ตรงกัน</option>
+        </select>
+
+        <div id="currentAddressArea">
+          <label>ที่อยู่ปัจจุบัน</label>
+          <textarea id="currentAddress" class="input">${c.current_address || ''}</textarea>
+        </div>
+
+        <label>ชื่อผู้ติดต่อฉุกเฉิน</label>
+        <input id="emergencyName" class="input" value="${c.emergency_name || ''}">
+
+        <label>ความสัมพันธ์</label>
+        <input id="emergencyRelation" class="input" value="${c.emergency_relation || ''}" placeholder="เช่น แม่ / พี่ / คู่สมรส">
+
+        <label>เบอร์โทรฉุกเฉิน</label>
+        <input id="emergencyPhone" class="input" inputmode="tel" value="${c.emergency_phone || ''}">
+
+        <button class="btn" onclick="saveContact()">บันทึกข้อมูล</button>
+      `;
+
+      toggleCurrentAddress();
+    }
+
+    function toggleCurrentAddress() {
+      const same = document.getElementById('currentAddressSame').value;
+      const area = document.getElementById('currentAddressArea');
+      area.style.display = same === 'TRUE' ? 'none' : 'block';
+    }
+
+    async function saveContact() {
+      const data = {
+        phone: document.getElementById('phone').value.trim(),
+        registered_address: document.getElementById('registeredAddress').value.trim(),
+        current_address_same: document.getElementById('currentAddressSame').value,
+        current_address: document.getElementById('currentAddress').value.trim(),
+        emergency_name: document.getElementById('emergencyName').value.trim(),
+        emergency_relation: document.getElementById('emergencyRelation').value.trim(),
+        emergency_phone: document.getElementById('emergencyPhone').value.trim()
+      };
+
+      if (!data.phone || !data.registered_address || !data.emergency_name || !data.emergency_phone) {
+        alert('กรุณากรอก เบอร์โทร / ที่อยู่ / ผู้ติดต่อฉุกเฉิน ให้ครบ');
+        return;
+      }
+
+      if (data.current_address_same === 'FALSE' && !data.current_address) {
+        alert('กรุณากรอกที่อยู่ปัจจุบัน');
+        return;
+      }
+
+      document.getElementById('app').innerHTML =
+        '<div class="loading">กำลังบันทึกข้อมูล...</div>';
+
+      try {
+        const res = await callApi({
+          action: 'saveEmployeeContact',
+          line_uid: lineUid,
+          data: data
+        });
+
+        if (!res.success) {
+          showError(res.message || 'บันทึกไม่สำเร็จ');
+          return;
+        }
+
+        document.getElementById('app').innerHTML = `
+          <div class="hello">บันทึกเรียบร้อย</div>
+          <div class="sub">ข้อมูลติดต่อของคุณถูกอัปเดตแล้ว</div>
+          <button class="btn" onclick="main()">กลับไปแก้ไขข้อมูล</button>
+        `;
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML =
+        '<div class="error">' + message + '</div>';
+    }
+
+    main();
+  </script>
+</body>
+</html>
