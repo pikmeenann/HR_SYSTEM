@@ -205,7 +205,10 @@
 
       app.innerHTML = list.map(function(emp) {
         return `
-          <div class="row">
+          <div
+      class="row"
+      onclick="openEmployee('${emp.employee_code}')"
+    >
             <div class="name">
               ${emp.nickname || '-'}
               <span style="font-size:13px;color:#888;">${emp.employee_code || ''}</span>
@@ -243,6 +246,12 @@
       document.getElementById('app').innerHTML =
         '<div class="card error">' + message + '</div>';
     }
+
+    function openEmployee(employeeCode) {
+  location.href =
+    'employee_detail.html?employee_code=' +
+    encodeURIComponent(employeeCode);
+}
 
     main();
   </script>
