@@ -154,7 +154,7 @@
                 isOff
                   ? 'วันหยุด'
                   : `
-                    กะ: ${d.shift_name || '-'}<br>
+                    กะ: ${translateShiftName(d.shift_name)}<br>
                     เวลา: ${formatTimeOnly(d.start_time)} - ${formatTimeOnly(d.end_time)}<br>
                     สาขา: ${d.branch_id || '-'}
                   `
@@ -199,6 +199,21 @@
       document.getElementById('app').innerHTML =
         '<div class="card error">' + message + '</div>';
     }
+
+    function translateShiftName(shiftName) {
+  const map = {
+    MORNING: 'กะเช้า',
+    LATE_MORNING: 'กะสาย',
+    AFTERNOON: 'กะบ่าย',
+    EVENING: 'กะเย็น',
+    NIGHT: 'กะดึก',
+    OFF: 'วันหยุด',
+    LEAVE: 'ลา',
+    SPECIAL: 'กะพิเศษ'
+  };
+
+  return map[shiftName] || shiftName || '-';
+}
 
     main();
   </script>
