@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>My Schedule</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #f7f3e8;
+      font-family: Arial, sans-serif;
+      color: #333;
+    }
+
+    .wrap {
+      max-width: 460px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.08);
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .sub {
+      color: #777;
+      margin-top: 4px;
+    }
+
+    .day {
+      border-left: 6px solid #7fb069;
+    }
+
+    .off {
+      border-left: 6px solid #d95d5d;
+    }
+
+    .date {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .shift {
+      margin-top: 8px;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .loading,
+    .error {
+      text-align: center;
+      padding: 40px 10px;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">ตารางงานของฉัน</div>
+      <div class="sub">14 วันข้างหน้า</div>
+    </div>
+
+    <div id="app">
+      <div class="card loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-can2Dq6e';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function main() {
+      try {
+        await liff.init({
+          liffId: LIFF_ID
+        });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+
+        const result = await callApi({
+          action: 'getMySchedule',
+          line_uid: profile.userId
+        });
+
+        render(result);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function render(result) {
+      const app = document.getElementById('app');
+
+      if (!result.success) {
+        showError(result.message || 'โหลดตารางงานไม่สำเร็จ');
+        return;
+      }
+
+      if (!result.days || !result.days.length) {
+        app.innerHTML = '<div class="card loading">ยังไม่มีตารางงาน</div>';
+        return;
+      }
+
+      app.innerHTML = result.days.map(function(d) {
+        const isOff =
+          String(d.is_off_day).toUpperCase() === 'TRUE' ||
+          d.is_off_day === true;
+
+        return `
+          <div class="card ${isOff ? 'off' : 'day'}">
+            <div class="date">${formatDate(d.date)}</div>
+
+            <div class="shift">
+              ${
+                isOff
+                  ? 'วันหยุด'
+                  : `
+                    กะ: ${d.shift_name || '-'}<br>
+                    เวลา: ${formatTimeOnly(d.start_time)} - ${formatTimeOnly(d.end_time)}<br>
+                    สาขา: ${d.branch_id || '-'}
+                  `
+              }
+              ${d.note ? '<br>หมายเหตุ: ' + d.note : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleDateString('th-TH', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short'
+      });
+    }
+
+    function formatTimeOnly(value) {
+      if (!value) return '-';
+
+      if (typeof value === 'string') {
+        return value;
+      }
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML =
+        '<div class="card error">' + message + '</div>';
+    }
+
+    main();
+  </script>
+</body>
+</html>
