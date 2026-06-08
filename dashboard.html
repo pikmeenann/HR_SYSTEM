@@ -123,6 +123,16 @@
       color: #9a6400;
     }
 
+    .LEAVE {
+      background: #e8e0ff;
+      color: #6042a6;
+    }
+
+    .OFF {
+      background: #e6f1ff;
+      color: #2f6597;
+    }
+
     .btn {
       width: 100%;
       border: none;
@@ -313,8 +323,11 @@
 
             <div class="meta">
               ${row.full_name || ''}<br>
+              ตารางงาน: ${row.scheduled_in || '-'} - ${row.scheduled_out || '-'}<br>
               รายการล่าสุด: ${translateAction(row.last_action) || '-'}<br>
-              เวลา: ${formatTime(row.last_action_time)}
+              เวลา: ${formatTime(row.last_action_time)}<br>
+              มาสาย: ${row.late_minutes || 0} นาที<br>
+              HOT: ${row.hot_credit || 0}
             </div>
 
             <div class="status ${row.current_status}">
@@ -330,26 +343,46 @@
           <div class="sub">วันที่ ${formatDate(res.date)}</div>
 
           <div class="summary">
-            <div class="box">
-              <div class="num">${s.WORKING || 0}</div>
-              <div class="label">กำลังทำงาน</div>
-            </div>
+  <div class="box">
+    <div class="num">${s.WORKING || 0}</div>
+    <div class="label">กำลังทำงาน</div>
+  </div>
 
-            <div class="box">
-              <div class="num">${s.ON_BREAK || 0}</div>
-              <div class="label">พักอยู่</div>
-            </div>
+  <div class="box">
+    <div class="num">${s.ON_BREAK || 0}</div>
+    <div class="label">พักอยู่</div>
+  </div>
 
-            <div class="box">
-              <div class="num">${s.NOT_CHECKED_IN || 0}</div>
-              <div class="label">ยังไม่เข้างาน</div>
-            </div>
+  <div class="box">
+    <div class="num">${s.NOT_CHECKED_IN || 0}</div>
+    <div class="label">ยังไม่เข้างาน</div>
+  </div>
 
-            <div class="box">
-              <div class="num">${s.CHECKED_OUT || 0}</div>
-              <div class="label">ออกงานแล้ว</div>
-            </div>
-          </div>
+  <div class="box">
+    <div class="num">${s.CHECKED_OUT || 0}</div>
+    <div class="label">ออกงานแล้ว</div>
+  </div>
+
+  <div class="box">
+    <div class="num">${s.LEAVE || 0}</div>
+    <div class="label">ลาวันนี้</div>
+  </div>
+
+  <div class="box">
+    <div class="num">${s.OFF || 0}</div>
+    <div class="label">หยุดวันนี้</div>
+  </div>
+
+  <div class="box">
+    <div class="num">${s.LATE || 0}</div>
+    <div class="label">มาสาย</div>
+  </div>
+
+  <div class="box">
+    <div class="num">${s.HOT || 0}</div>
+    <div class="label">ได้ HOT</div>
+  </div>
+</div>
         </div>
 
         ${rows || '<div class="card empty">ไม่พบพนักงานในสาขานี้</div>'}
@@ -362,7 +395,9 @@
         WORKING: 'กำลังทำงาน',
         ON_BREAK: 'กำลังพัก',
         CHECKED_OUT: 'ออกงานแล้ว',
-        MISSING_CHECKOUT: 'ยังไม่ได้เช็คเอาท์'
+        MISSING_CHECKOUT: 'ยังไม่ได้เช็คเอาท์',
+        LEAVE: 'ลา',
+        OFF: 'วันหยุด'
       };
 
       return map[status] || status || '-';
