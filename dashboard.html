@@ -8,9 +8,7 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -43,6 +41,7 @@
       color: #777;
       font-size: 14px;
       margin-bottom: 16px;
+      line-height: 1.6;
     }
 
     .summary {
@@ -119,6 +118,11 @@
       color: #a33;
     }
 
+    .MISSING_CHECKOUT {
+      background: #fff0d6;
+      color: #9a6400;
+    }
+
     .btn {
       width: 100%;
       border: none;
@@ -142,7 +146,8 @@
     }
 
     .loading,
-    .error {
+    .error,
+    .empty {
       padding: 28px 10px;
       text-align: center;
       color: #777;
@@ -159,8 +164,8 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="title">สถานะพนักงานวันนี้</div>
-      <div class="sub">เลือกสาขาเพื่อดูคนหน้างาน</div>
+      <div class="title">Dashboard พนักงาน</div>
+      <div class="sub" id="accessInfo">กำลังตรวจสอบสิทธิ์...</div>
 
       <select id="branchSelect" class="input">
         <option value="">เลือกสาขา</option>
@@ -173,6 +178,7 @@
         <option value="P FI">P FI - PikMee แฟชั่น</option>
         <option value="P SC">P SC - PikMee สีลม</option>
         <option value="P R2">P R2 - PikMee พระราม2</option>
+
         <option value="C EV">C EV - CadoCado อีสท์วิลล์</option>
         <option value="C LP">C LP - CadoCado ลาดพร้าว</option>
         <option value="C PK">C PK - CadoCado ปิ่นเกล้า</option>
@@ -186,15 +192,19 @@
       <button class="btn" onclick="loadDashboard()">ดูสถานะ</button>
     </div>
 
-    <div id="app"></div>
+    <div id="app">
+      <div class="card loading">กำลังโหลด...</div>
+    </div>
   </div>
 
   <script>
-    const LIFF_ID = '2010317944-g20xBWI1';
-      let lineUid = '';
-      let dashboardAccess = null;
+    const LIFF_ID = '2010317944-qrJlENj0';
+
     const GAS_API_URL =
       'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+    let dashboardAccess = null;
 
     async function callApi(payload) {
       const res = await fetch(GAS_API_URL, {
@@ -205,12 +215,63 @@
       return await res.json();
     }
 
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        const access = await callApi({
+          action: 'getDashboardAccess',
+          line_uid: lineUid
+        });
+
+        if (!access.success) {
+          document.getElementById('accessInfo').innerText = 'ไม่มีสิทธิ์ใช้งาน';
+          showError(access.message || 'คุณไม่มีสิทธิ์ดูหน้านี้');
+          return;
+        }
+
+        dashboardAccess = access;
+        setupDashboardAccess(access);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function setupDashboardAccess(access) {
+      const branchSelect = document.getElementById('branchSelect');
+
+      document.getElementById('accessInfo').innerHTML =
+        'สิทธิ์: ' + access.role + '<br>สาขา: ' + (access.branch_id || '-');
+
+      if (access.access_level === 'ALL') {
+        branchSelect.disabled = false;
+        document.getElementById('app').innerHTML =
+          '<div class="card empty">กรุณาเลือกสาขาเพื่อดูสถานะพนักงาน</div>';
+        return;
+      }
+
+      if (access.access_level === 'BRANCH') {
+        branchSelect.value = access.branch_id;
+        branchSelect.disabled = true;
+        loadDashboard();
+      }
+    }
+
     async function loadDashboard() {
       let branchId = document.getElementById('branchSelect').value;
 
-    if (dashboardAccess && dashboardAccess.access_level === 'BRANCH') {
-      branchId = dashboardAccess.branch_id;
-    };
+      if (dashboardAccess && dashboardAccess.access_level === 'BRANCH') {
+        branchId = dashboardAccess.branch_id;
+      }
 
       if (!branchId) {
         alert('กรุณาเลือกสาขา');
@@ -227,14 +288,14 @@
         });
 
         if (!res.success) {
-          app.innerHTML = '<div class="card error">' + (res.message || 'โหลดข้อมูลไม่สำเร็จ') + '</div>';
+          showError(res.message || 'โหลดข้อมูลไม่สำเร็จ');
           return;
         }
 
         renderDashboard(res);
 
       } catch (err) {
-        app.innerHTML = '<div class="card error">' + (err.message || err) + '</div>';
+        showError(err.message || err);
       }
     }
 
@@ -245,12 +306,17 @@
       const rows = (res.rows || []).map(function(row) {
         return `
           <div class="row">
-            <div class="name">${row.nickname || '-'} <span style="font-size:13px;color:#888;">${row.employee_code}</span></div>
+            <div class="name">
+              ${row.nickname || '-'}
+              <span style="font-size:13px;color:#888;">${row.employee_code}</span>
+            </div>
+
             <div class="meta">
               ${row.full_name || ''}<br>
               รายการล่าสุด: ${translateAction(row.last_action) || '-'}<br>
               เวลา: ${formatTime(row.last_action_time)}
             </div>
+
             <div class="status ${row.current_status}">
               ${translateStatus(row.current_status)}
             </div>
@@ -261,21 +327,24 @@
       app.innerHTML = `
         <div class="card">
           <div class="title">${res.branch_id}</div>
-          <div class="sub">วันที่ ${res.date}</div>
+          <div class="sub">วันที่ ${formatDate(res.date)}</div>
 
           <div class="summary">
             <div class="box">
               <div class="num">${s.WORKING || 0}</div>
               <div class="label">กำลังทำงาน</div>
             </div>
+
             <div class="box">
               <div class="num">${s.ON_BREAK || 0}</div>
               <div class="label">พักอยู่</div>
             </div>
+
             <div class="box">
               <div class="num">${s.NOT_CHECKED_IN || 0}</div>
               <div class="label">ยังไม่เข้างาน</div>
             </div>
+
             <div class="box">
               <div class="num">${s.CHECKED_OUT || 0}</div>
               <div class="label">ออกงานแล้ว</div>
@@ -283,7 +352,7 @@
           </div>
         </div>
 
-        ${rows || '<div class="card loading">ไม่พบพนักงานในสาขานี้</div>'}
+        ${rows || '<div class="card empty">ไม่พบพนักงานในสาขานี้</div>'}
       `;
     }
 
@@ -322,54 +391,24 @@
       });
     }
 
-    async function main() {
-  try {
-    await liff.init({ liffId: LIFF_ID });
+    function formatDate(value) {
+      if (!value) return '-';
 
-    if (!liff.isLoggedIn()) {
-      liff.login();
-      return;
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
     }
 
-    const profile = await liff.getProfile();
-    lineUid = profile.userId;
-
-    const access = await callApi({
-      action: 'getDashboardAccess',
-      line_uid: lineUid
-    });
-
-    if (!access.success) {
+    function showError(message) {
       document.getElementById('app').innerHTML =
-        '<div class="card error">' + access.message + '</div>';
-      return;
+        '<div class="card error">' + message + '</div>';
     }
 
-    dashboardAccess = access;
-
-    setupDashboardAccess(access);
-
-  } catch (err) {
-    document.getElementById('app').innerHTML =
-      '<div class="card error">' + (err.message || err) + '</div>';
-  }
-}
-
-function setupDashboardAccess(access) {
-  const branchSelect = document.getElementById('branchSelect');
-
-  if (access.access_level === 'ALL') {
-    branchSelect.disabled = false;
-    return;
-  }
-
-  if (access.access_level === 'BRANCH') {
-    branchSelect.value = access.branch_id;
-    branchSelect.disabled = true;
-    loadDashboard();
-  }
-}
-    
     main();
   </script>
 </body>
