@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Schedule Admin</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #f7f3e8;
+      font-family: Arial, sans-serif;
+      color: #333;
+    }
+
+    .wrap {
+      max-width: 460px;
+      margin: auto;
+      padding: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.08);
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .sub {
+      color: #777;
+      font-size: 14px;
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #555;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      background: #fff;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 16px;
+      font-size: 17px;
+      font-weight: 800;
+      background: #7fb069;
+      color: white;
+      margin-top: 16px;
+    }
+
+    .btn.orange {
+      background: #f4a259;
+    }
+
+    .days {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .daybox {
+      background: #eef6e8;
+      border-radius: 14px;
+      padding: 10px;
+      font-size: 15px;
+    }
+
+    .loading,
+    .error {
+      text-align: center;
+      padding: 34px 10px;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .tab {
+      border: none;
+      border-radius: 16px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 800;
+      background: #eee;
+      color: #555;
+    }
+
+    .tab.active {
+      background: #7fb069;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">จัดตารางงาน</div>
+      <div class="sub" id="userInfo">กำลังโหลดข้อมูล...</div>
+
+      <div class="tabs">
+        <button class="tab active" id="tabMonthly" onclick="showMode('monthly')">สร้างทั้งรอบ</button>
+        <button class="tab" id="tabDaily" onclick="showMode('daily')">แก้รายวัน</button>
+      </div>
+    </div>
+
+    <div id="app">
+      <div class="card loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-Gkh7the0';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+    let adminData = null;
+    let currentMode = 'monthly';
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        const res = await callApi({
+          action: 'getScheduleAdminData',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError(res.message || 'ไม่มีสิทธิ์ใช้งาน');
+          return;
+        }
+
+        adminData = res;
+
+        document.getElementById('userInfo').innerHTML =
+          'สิทธิ์: ' + res.role + '<br>สาขา: ' + (res.branch_id || '-');
+
+        renderMonthlyForm();
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function showMode(mode) {
+      currentMode = mode;
+
+      document.getElementById('tabMonthly').classList.toggle('active', mode === 'monthly');
+      document.getElementById('tabDaily').classList.toggle('active', mode === 'daily');
+
+      if (mode === 'monthly') {
+        renderMonthlyForm();
+      } else {
+        renderDailyForm();
+      }
+    }
+
+    function getEmployeeOptions() {
+      return (adminData.employees || []).map(function(emp) {
+        return `
+          <option value="${emp.employee_code}">
+            ${emp.nickname || '-'} (${emp.employee_code}) - ${emp.branch_id || '-'}
+          </option>
+        `;
+      }).join('');
+    }
+
+    function renderMonthlyForm() {
+      document.getElementById('app').innerHTML = `
+        <div class="card">
+          <div class="title">สร้างตารางทั้งรอบ</div>
+          <div class="sub">เหมาะกับพนักงานที่เข้าเวลาเดิมทั้งเดือน</div>
+
+          <label>พนักงาน</label>
+          <select id="mEmployee" class="input">
+            <option value="">เลือกพนักงาน</option>
+            ${getEmployeeOptions()}
+          </select>
+
+          <label>วันที่เริ่มรอบ</label>
+          <input id="mStart" class="input" type="date">
+
+          <label>วันที่สิ้นสุดรอบ</label>
+          <input id="mEnd" class="input" type="date">
+
+          <label>เวลาเข้างาน</label>
+          <input id="mStartTime" class="input" type="time" value="09:00">
+
+          <label>เวลาออกงาน</label>
+          <input id="mEndTime" class="input" type="time" value="18:00">
+
+          <label>วันหยุดประจำสัปดาห์</label>
+          <div class="days">
+            ${weekdayCheckboxes('mOff')}
+          </div>
+
+          <label>พักกี่นาที</label>
+          <input id="mBreak" class="input" type="number" value="60">
+
+          <button class="btn" onclick="submitMonthly()">สร้างตารางทั้งรอบ</button>
+        </div>
+      `;
+
+      setDefaultPeriod();
+    }
+
+    function renderDailyForm() {
+      document.getElementById('app').innerHTML = `
+        <div class="card">
+          <div class="title">แก้ตารางรายวัน</div>
+          <div class="sub">ใช้แก้วันที่พิเศษ หรือเปลี่ยนวันหยุด</div>
+
+          <label>พนักงาน</label>
+          <select id="dEmployee" class="input">
+            <option value="">เลือกพนักงาน</option>
+            ${getEmployeeOptions()}
+          </select>
+
+          <label>วันที่</label>
+          <input id="dDate" class="input" type="date">
+
+          <label>ประเภทวัน</label>
+          <select id="dShift" class="input" onchange="toggleDailyTime()">
+            <option value="NORMAL">วันทำงาน</option>
+            <option value="OFF">วันหยุด</option>
+            <option value="LEAVE">ลา</option>
+            <option value="SPECIAL">เวลาพิเศษ</option>
+          </select>
+
+          <div id="dailyTimeArea">
+            <label>เวลาเข้างาน</label>
+            <input id="dStartTime" class="input" type="time" value="09:00">
+
+            <label>เวลาออกงาน</label>
+            <input id="dEndTime" class="input" type="time" value="18:00">
+          </div>
+
+          <label>หมายเหตุ</label>
+          <input id="dNote" class="input" placeholder="เช่น เปลี่ยนเวลา / ช่วยสาขาอื่น">
+
+          <button class="btn orange" onclick="submitDaily()">บันทึกตารางรายวัน</button>
+        </div>
+      `;
+    }
+
+    function weekdayCheckboxes(prefix) {
+      const days = [
+        ['0', 'อาทิตย์'],
+        ['1', 'จันทร์'],
+        ['2', 'อังคาร'],
+        ['3', 'พุธ'],
+        ['4', 'พฤหัส'],
+        ['5', 'ศุกร์'],
+        ['6', 'เสาร์']
+      ];
+
+      return days.map(function(d) {
+        return `
+          <label class="daybox">
+            <input type="checkbox" name="${prefix}" value="${d[0]}">
+            ${d[1]}
+          </label>
+        `;
+      }).join('');
+    }
+
+    function setDefaultPeriod() {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = today.getMonth();
+
+      let start;
+      let end;
+
+      if (today.getDate() <= 20) {
+        start = new Date(y, m - 1, 21);
+        end = new Date(y, m, 20);
+      } else {
+        start = new Date(y, m, 21);
+        end = new Date(y, m + 1, 20);
+      }
+
+      document.getElementById('mStart').value = toDateInput(start);
+      document.getElementById('mEnd').value = toDateInput(end);
+    }
+
+    function toDateInput(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+
+    function getCheckedValues(name) {
+      return Array.from(document.querySelectorAll('input[name="' + name + '"]:checked'))
+        .map(function(el) { return el.value; });
+    }
+
+    async function submitMonthly() {
+      if (window.isSubmitting) return;
+      window.isSubmitting = true;
+
+      const employeeCode = document.getElementById('mEmployee').value;
+      const periodStart = document.getElementById('mStart').value;
+      const periodEnd = document.getElementById('mEnd').value;
+      const startTime = document.getElementById('mStartTime').value;
+      const endTime = document.getElementById('mEndTime').value;
+      const breakMinutes = document.getElementById('mBreak').value;
+      const offDays = getCheckedValues('mOff');
+
+      if (!employeeCode || !periodStart || !periodEnd || !startTime || !endTime) {
+        alert('กรุณากรอกข้อมูลให้ครบ');
+        window.isSubmitting = false;
+        return;
+      }
+
+      if (!confirm('ยืนยันสร้างตารางทั้งรอบ? หากมีวันเดิม ระบบจะอัปเดตทับ')) {
+        window.isSubmitting = false;
+        return;
+      }
+
+      try {
+        document.getElementById('app').innerHTML =
+          '<div class="card loading">กำลังสร้างตาราง...</div>';
+
+        const res = await callApi({
+          action: 'generateMonthlySchedule',
+          data: {
+            line_uid: lineUid,
+            employee_code: employeeCode,
+            period_start: periodStart,
+            period_end: periodEnd,
+            start_time: startTime,
+            end_time: endTime,
+            break_minutes: breakMinutes,
+            off_days: offDays
+          }
+        });
+
+        if (!res.success) {
+          showError(res.message || 'สร้างตารางไม่สำเร็จ');
+          return;
+        }
+
+        alert(res.message || 'สำเร็จ');
+        renderMonthlyForm();
+
+      } catch (err) {
+        showError(err.message || err);
+      } finally {
+        window.isSubmitting = false;
+      }
+    }
+
+    function toggleDailyTime() {
+      const shift = document.getElementById('dShift').value;
+      const area = document.getElementById('dailyTimeArea');
+
+      area.style.display =
+        (shift === 'OFF' || shift === 'LEAVE')
+          ? 'none'
+          : 'block';
+    }
+
+    async function submitDaily() {
+      if (window.isSubmitting) return;
+      window.isSubmitting = true;
+
+      const employeeCode = document.getElementById('dEmployee').value;
+      const date = document.getElementById('dDate').value;
+      const shift = document.getElementById('dShift').value;
+      const startTime = document.getElementById('dStartTime') ? document.getElementById('dStartTime').value : '';
+      const endTime = document.getElementById('dEndTime') ? document.getElementById('dEndTime').value : '';
+      const note = document.getElementById('dNote').value.trim();
+
+      if (!employeeCode || !date || !shift) {
+        alert('กรุณากรอกข้อมูลให้ครบ');
+        window.isSubmitting = false;
+        return;
+      }
+
+      if (shift !== 'OFF' && shift !== 'LEAVE' && (!startTime || !endTime)) {
+        alert('กรุณาใส่เวลาเข้าและเวลาออก');
+        window.isSubmitting = false;
+        return;
+      }
+
+      try {
+        document.getElementById('app').innerHTML =
+          '<div class="card loading">กำลังบันทึก...</div>';
+
+        const res = await callApi({
+          action: 'saveWorkSchedule',
+          data: {
+            line_uid: lineUid,
+            employee_code: employeeCode,
+            date: date,
+            shift_name: shift,
+            start_time: startTime,
+            end_time: endTime,
+            break_minutes: 60,
+            note: note || 'แก้รายวัน'
+          }
+        });
+
+        if (!res.success) {
+          showError(res.message || 'บันทึกไม่สำเร็จ');
+          return;
+        }
+
+        alert(res.message || 'บันทึกสำเร็จ');
+        renderDailyForm();
+
+      } catch (err) {
+        showError(err.message || err);
+      } finally {
+        window.isSubmitting = false;
+      }
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML =
+        '<div class="card error">' + message + '</div>';
+    }
+
+    main();
+  </script>
+</body>
+</html>
