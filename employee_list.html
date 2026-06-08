@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Employee List</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      margin-bottom: 14px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .sub {
+      color: #777;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      background: #fff;
+      margin-top: 12px;
+    }
+
+    .row {
+      background: #fff;
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    .name {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .meta {
+      font-size: 13px;
+      color: #777;
+      line-height: 1.6;
+    }
+
+    .pill {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eef6e8;
+      color: #477a37;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .loading,
+    .error,
+    .empty {
+      padding: 28px 10px;
+      text-align: center;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">รายชื่อพนักงาน</div>
+      <div class="sub" id="accessInfo">กำลังโหลดข้อมูล...</div>
+
+      <input
+        id="searchInput"
+        class="input"
+        placeholder="ค้นหาชื่อ / รหัส / สาขา"
+        oninput="filterEmployees()"
+      >
+    </div>
+
+    <div id="app">
+      <div class="card loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-Nwoclupm';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+    let employees = [];
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        const res = await callApi({
+          action: 'getEmployeeList',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError(res.message || 'ไม่มีสิทธิ์ใช้งาน');
+          return;
+        }
+
+        employees = res.employees || [];
+
+        document.getElementById('accessInfo').innerHTML =
+          'สิทธิ์: ' + res.role + '<br>จำนวนพนักงาน: ' + employees.length + ' คน';
+
+        renderEmployees(employees);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function filterEmployees() {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+
+      if (!q) {
+        renderEmployees(employees);
+        return;
+      }
+
+      const filtered = employees.filter(function(emp) {
+        const text = [
+          emp.employee_code,
+          emp.nickname,
+          emp.full_name,
+          emp.branch_id,
+          emp.position,
+          emp.role
+        ].join(' ').toLowerCase();
+
+        return text.indexOf(q) !== -1;
+      });
+
+      renderEmployees(filtered);
+    }
+
+    function renderEmployees(list) {
+      const app = document.getElementById('app');
+
+      if (!list.length) {
+        app.innerHTML = '<div class="card empty">ไม่พบข้อมูลพนักงาน</div>';
+        return;
+      }
+
+      app.innerHTML = list.map(function(emp) {
+        return `
+          <div class="row">
+            <div class="name">
+              ${emp.nickname || '-'}
+              <span style="font-size:13px;color:#888;">${emp.employee_code || ''}</span>
+            </div>
+
+            <div class="meta">
+              ${emp.full_name || ''}<br>
+              สาขา: ${emp.branch_id || '-'}<br>
+              ตำแหน่ง: ${emp.position || '-'}<br>
+              เริ่มงาน: ${formatDate(emp.start_date)}
+            </div>
+
+            <div class="pill">
+              ${emp.role || '-'} · ${emp.employment_status || '-'}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML =
+        '<div class="card error">' + message + '</div>';
+    }
+
+    main();
+  </script>
+</body>
+</html>
