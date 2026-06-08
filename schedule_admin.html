@@ -232,17 +232,16 @@
             ${getEmployeeOptions()}
           </select>
 
-          <label>วันที่เริ่มรอบ</label>
-          <input id="mStart" class="input" type="date">
-
-          <label>วันที่สิ้นสุดรอบ</label>
-          <input id="mEnd" class="input" type="date">
+          <label>รอบทำงาน</label>
+          <select id="mPeriod" class="input"></select>
 
           <label>เวลาเข้างาน</label>
           <input id="mStartTime" class="input" type="time" value="09:00">
 
           <label>เวลาออกงาน</label>
           <input id="mEndTime" class="input" type="time" value="18:00">
+
+          <div class="sub">กรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00, 18:00, 21:30</div>
 
           <label>วันหยุดประจำสัปดาห์</label>
           <div class="days">
@@ -256,7 +255,7 @@
         </div>
       `;
 
-      setDefaultPeriod();
+      renderPeriodOptions();
     }
 
     function renderDailyForm() {
@@ -356,8 +355,10 @@
       window.isSubmitting = true;
 
       const employeeCode = document.getElementById('mEmployee').value;
-      const periodStart = document.getElementById('mStart').value;
-      const periodEnd = document.getElementById('mEnd').value;
+      const periodValue = document.getElementById('mPeriod').value;
+      const periodParts = periodValue.split('|');
+      const periodStart = periodParts[0];
+      const periodEnd = periodParts[1];
       const startTime = document.getElementById('mStartTime').value;
       const endTime = document.getElementById('mEndTime').value;
       const breakMinutes = document.getElementById('mBreak').value;
@@ -477,6 +478,79 @@
       document.getElementById('app').innerHTML =
         '<div class="card error">' + message + '</div>';
     }
+
+    function renderPeriodOptions() {
+  const select = document.getElementById('mPeriod');
+  const periods = getPayrollPeriodsForSchedule();
+
+  select.innerHTML = periods.map(function(p) {
+    return `
+      <option value="${p.start}|${p.end}">
+        ${p.label}
+      </option>
+    `;
+  }).join('');
+}
+
+
+function getPayrollPeriodsForSchedule() {
+  const today = new Date();
+
+  const current = getPayrollPeriodRange(today);
+  const previousBase = new Date(current.startDate);
+  previousBase.setDate(previousBase.getDate() - 1);
+  const previous = getPayrollPeriodRange(previousBase);
+
+  return [
+    {
+      label: 'รอบย้อนหลัง: ' + formatPeriodLabel(previous.startDate, previous.endDate),
+      start: toDateInput(previous.startDate),
+      end: toDateInput(previous.endDate)
+    },
+    {
+      label: 'รอบถัดไป: ' + formatPeriodLabel(current.startDate, current.endDate),
+      start: toDateInput(current.startDate),
+      end: toDateInput(current.endDate)
+    }
+  ];
+}
+
+
+function getPayrollPeriodRange(date) {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const day = d.getDate();
+
+  let start;
+  let end;
+
+  if (day <= 20) {
+    start = new Date(y, m - 1, 21);
+    end = new Date(y, m, 20);
+  } else {
+    start = new Date(y, m, 21);
+    end = new Date(y, m + 1, 20);
+  }
+
+  return {
+    startDate: start,
+    endDate: end
+  };
+}
+
+
+function formatPeriodLabel(start, end) {
+  return formatDateShort(start) + ' - ' + formatDateShort(end);
+}
+
+
+function formatDateShort(d) {
+  return d.toLocaleDateString('th-TH', {
+    day: 'numeric',
+    month: 'short'
+  });
+}
 
     main();
   </script>
