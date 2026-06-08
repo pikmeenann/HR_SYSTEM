@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Leave Approval</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 460px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      margin-bottom: 14px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .sub, .meta {
+      font-size: 14px;
+      color: #777;
+      line-height: 1.6;
+    }
+
+    .name {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .pill {
+      display: inline-block;
+      background: #eef6e8;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 8px 0;
+    }
+
+    .reason {
+      background: #fff7e8;
+      border-radius: 16px;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 16px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 800;
+      color: white;
+    }
+
+    .approve { background: #7fb069; }
+    .reject { background: #d95d5d; }
+
+    .loading, .error, .empty {
+      text-align: center;
+      padding: 34px 10px;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">อนุมัติใบลา</div>
+      <div class="sub">รายการที่รอการอนุมัติ</div>
+    </div>
+
+    <div id="app">
+      <div class="card loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-6koLiYjX';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        await loadRequests();
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function loadRequests() {
+      const app = document.getElementById('app');
+      app.innerHTML = '<div class="card loading">กำลังโหลด...</div>';
+
+      try {
+        const res = await callApi({
+          action: 'getPendingLeaveRequests',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        renderRequests(res.requests || []);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function renderRequests(requests) {
+      const app = document.getElementById('app');
+
+      if (!requests.length) {
+        app.innerHTML = '<div class="card empty">ไม่มีใบลารออนุมัติ</div>';
+        return;
+      }
+
+      app.innerHTML = requests.map(function(r) {
+        return `
+          <div class="card">
+            <div class="name">${r.nickname || '-'} <span class="meta">${r.employee_code}</span></div>
+            <div class="meta">
+              ${r.full_name || ''}<br>
+              สาขา: ${r.branch_id || '-'}
+            </div>
+
+            <div class="pill">${translateLeaveType(r.leave_type)} · ${r.total_days} วัน</div>
+
+            <div class="meta">
+              วันที่: ${formatDate(r.start_date)} - ${formatDate(r.end_date)}
+            </div>
+
+            <div class="reason">
+              เหตุผล: ${r.reason || '-'}
+            </div>
+
+            <div class="btn-row">
+              <button class="btn approve" onclick="decideLeave('${r.leave_id}', 'APPROVED')">อนุมัติ</button>
+              <button class="btn reject" onclick="decideLeave('${r.leave_id}', 'REJECTED')">ปฏิเสธ</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function decideLeave(leaveId, decision) {
+      const text = decision === 'APPROVED' ? 'อนุมัติ' : 'ปฏิเสธ';
+      const ok = confirm('ยืนยัน' + text + 'ใบลานี้?');
+      if (!ok) return;
+
+      try {
+        const res = await callApi({
+          action: 'approveLeaveRequest',
+          data: {
+            line_uid: lineUid,
+            leave_id: leaveId,
+            decision: decision,
+            note: text + 'ผ่าน LIFF'
+          }
+        });
+
+        if (!res.success) {
+          showError(res.message || 'ทำรายการไม่สำเร็จ');
+          return;
+        }
+
+        alert(res.message || 'สำเร็จ');
+        await loadRequests();
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function translateLeaveType(type) {
+      const map = {
+        SICK: 'ลาป่วย',
+        PERSONAL: 'ลากิจ',
+        VACATION: 'ลาพักร้อน',
+        OTHER: 'อื่นๆ',
+        ABSENT: 'ขาดงาน',
+        MATERNITY: 'ลาคลอด',
+        MILITARY: 'ลาเกณฑ์ทหาร',
+        STERILIZATION: 'ลาทำหมัน',
+        FUNERAL: 'ลางานศพ'
+      };
+
+      return map[type] || type || '-';
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML = `
+        <div class="card error">${message}</div>
+      `;
+    }
+
+    main();
+  </script>
+</body>
+</html>
