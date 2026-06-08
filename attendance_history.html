@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Attendance History</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 430px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      margin-bottom: 14px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .sub {
+      color: #777;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .row {
+      background: #fff;
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .date {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eef6e8;
+      color: #477a37;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .ABSENT {
+      background: #ffe2e2;
+      color: #a33;
+    }
+
+    .LEAVE {
+      background: #e8e0ff;
+      color: #6042a6;
+    }
+
+    .OFF {
+      background: #e6f1ff;
+      color: #2f6597;
+    }
+
+    .loading,
+    .error,
+    .empty {
+      text-align: center;
+      padding: 34px 10px;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">ประวัติการเข้างาน</div>
+      <div class="sub" id="employeeInfo">กำลังโหลดข้อมูล...</div>
+    </div>
+
+    <div id="app">
+      <div class="card loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-JFsW8yLs';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        const res = await callApi({
+          action: 'getMyAttendanceHistory',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        renderHistory(res);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function renderHistory(res) {
+      const emp = res.employee || {};
+      const rows = res.rows || [];
+
+      document.getElementById('employeeInfo').innerHTML =
+        `${emp.nickname || ''} · ${emp.employee_code || ''}<br>แสดงย้อนหลังล่าสุด 30 รายการ`;
+
+      const app = document.getElementById('app');
+
+      if (!rows.length) {
+        app.innerHTML =
+          '<div class="card empty">ยังไม่มีประวัติการเข้างาน</div>';
+        return;
+      }
+
+      app.innerHTML = rows.map(function(r) {
+        return `
+          <div class="row">
+            <div class="date">${formatDate(r.date)}</div>
+
+            ตารางงาน: ${r.scheduled_in || '-'} - ${r.scheduled_out || '-'}<br>
+            เข้างานจริง: ${r.actual_in || '-'}<br>
+            ออกงานจริง: ${r.actual_out || '-'}<br>
+            มาสาย: ${r.late_minutes || 0} นาที<br>
+            OT: ${r.ot_minutes || 0} นาที<br>
+            HOT: ${r.hot_credit || 0}
+
+            <br>
+            <div class="pill ${r.attendance_status}">
+              ${translateStatus(r.attendance_status)}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function translateStatus(status) {
+      const map = {
+        PRESENT: 'มาทำงาน',
+        ABSENT: 'ขาดงาน',
+        LEAVE: 'ลา',
+        OFF: 'วันหยุด'
+      };
+
+      return map[status] || status || '-';
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML =
+        '<div class="card error">' + message + '</div>';
+    }
+
+    main();
+  </script>
+</body>
+</html>
