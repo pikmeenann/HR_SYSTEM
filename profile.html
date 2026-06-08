@@ -87,6 +87,19 @@
       color: #a33;
       border-radius: 16px;
     }
+
+    .btn {
+  width: 100%;
+  border: none;
+  border-radius: 18px;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 800;
+  background: #7fb069;
+  color: white;
+  margin-top: 14px;
+}
+    
   </style>
 </head>
 
@@ -184,6 +197,10 @@
             <div class="label">HOT คงเหลือ</div>
           </div>
         </div>
+        
+        <button class="btn" onclick="openContact()">
+  📞 ข้อมูลติดต่อและบุคคลฉุกเฉิน
+</button>
       `;
     }
 
@@ -206,6 +223,10 @@
       `;
     }
 
+function openContact() {
+  window.location.href = 'https://liff.line.me/2010317944-VaiuSU2q';
+}
+    
     main();
   </script>
 </body>
