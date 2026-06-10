@@ -43,47 +43,129 @@
       line-height: 1.6;
     }
 
-    .row {
-      background: #fff;
-      border-radius: 18px;
-      padding: 14px;
-      margin-bottom: 10px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-      line-height: 1.7;
-      font-size: 14px;
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
     }
 
-    .date {
-      font-size: 17px;
-      font-weight: 800;
-      margin-bottom: 4px;
-    }
-
-    .pill {
-      display: inline-block;
-      padding: 5px 9px;
-      border-radius: 999px;
+    .summary-box {
       background: #eef6e8;
-      color: #477a37;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .summary-box.orange { background: #fff0d6; }
+    .summary-box.red { background: #ffe2e2; }
+
+    .num {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .label {
       font-size: 12px;
-      font-weight: 700;
-      margin-top: 6px;
+      color: #666;
+      line-height: 1.4;
     }
 
-    .ABSENT {
-      background: #ffe2e2;
-      color: #a33;
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      border: 1px solid #ddd;
+      border-radius: 16px;
+      overflow: hidden;
+      width: 100%;
     }
 
-    .LEAVE {
-      background: #e8e0ff;
-      color: #6042a6;
+    .day-head {
+      background: #eef6e8;
+      padding: 8px 2px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      border-right: 1px solid #ddd;
     }
 
-    .OFF {
-      background: #e6f1ff;
-      color: #2f6597;
+    .day-cell {
+      height: 86px;
+      min-width: 0;
+      padding: 6px 3px;
+      border-top: 1px solid #ddd;
+      border-right: 1px solid #ddd;
+      font-size: 10px;
+      background: #fff;
+      overflow: hidden;
+      position: relative;
     }
+
+    .day-cell.present {
+      background: #f4fbf0;
+    }
+
+    .day-cell.late {
+      background: #fff0d6;
+      color: #9a5a00;
+    }
+
+    .day-cell.empty-cell {
+      background: #fafafa;
+    }
+
+    .day-cell.today {
+      border: 2px solid #2f6b2f;
+      box-shadow: inset 0 0 0 1px #2f6b2f;
+    }
+
+    .today-tag {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      background: #2f6b2f;
+      border-radius: 50%;
+    }
+
+    .day-num {
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .time-line {
+      font-size: 10px;
+      line-height: 1.3;
+      word-break: keep-all;
+    }
+
+    .late-text {
+      color: #b05a00;
+      font-weight: 800;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+
+    .dot.present { background: #dff2d7; }
+    .dot.late { background: #fff0d6; }
+    .dot.none { background: #fafafa; border: 1px solid #ddd; }
 
     .loading,
     .error,
@@ -162,91 +244,198 @@
     function renderHistory(res) {
       const emp = res.employee || {};
       const rows = res.rows || [];
+      const summary = res.summary || {};
 
       document.getElementById('employeeInfo').innerHTML =
-        `${emp.nickname || ''} · ${emp.employee_code || ''}<br>แสดงย้อนหลังล่าสุด 30 รายการ`;
+        `${emp.nickname || ''} · ${emp.employee_code || ''}<br>` +
+        `รอบ ${formatFullThaiDate(res.range_start)} - ${formatFullThaiDate(res.range_end)}`;
 
       const app = document.getElementById('app');
 
-      if (!rows.length) {
-        app.innerHTML =
-          '<div class="card empty">ยังไม่มีประวัติการเข้างาน</div>';
-        return;
-      }
+      const dailyMap = buildDailyMap(rows);
 
-      app.innerHTML = rows.map(function(r) {
-        return `
-          <div class="row">
-            <div class="date">${formatDateTime(r.datetime)}</div>
+      app.innerHTML = `
+        <div class="card">
+          <div class="summary-grid">
+            <div class="summary-box orange">
+              <div class="num">${summary.late_count || 0}</div>
+              <div class="label">มาสาย<br>${summary.late_minutes || 0} นาที</div>
+            </div>
 
-            รายการ: ${translateAction(r.check_type)}<br>
-            สาขา: ${r.branch_name || r.branch_id || '-'}<br>
-            ระยะห่าง: ${r.distance_m || 0} เมตร<br>
-            สถานะ: ${r.status || '-'}
-
-            <br>
-            <div class="pill ${r.status}">
-              ${translateAction(r.check_type)}
+            <div class="summary-box">
+              <div class="num">${summary.ot_hours || '0.00'}</div>
+              <div class="label">OT สะสม<br>ชั่วโมง</div>
             </div>
           </div>
-        `;
-      }).join('');
+        </div>
+
+        <div class="card">
+          <div class="legend">
+            <span><i class="dot present"></i> มีบันทึกเวลา</span>
+            <span><i class="dot late"></i> มาสาย</span>
+            <span><i class="dot none"></i> ไม่มีบันทึก</span>
+          </div>
+
+          ${buildCalendarHtml(res.range_start, res.range_end, dailyMap)}
+        </div>
+      `;
     }
 
-    function translateStatus(status) {
-      const map = {
-        PRESENT: 'มาทำงาน',
-        ABSENT: 'ขาดงาน',
-        LEAVE: 'ลา',
-        OFF: 'วันหยุด'
-      };
+    function buildDailyMap(rows) {
+      const map = {};
 
-      return map[status] || status || '-';
+      rows.forEach(function(r) {
+        const dateText = r.date;
+
+        if (!map[dateText]) {
+          map[dateText] = {
+            date: dateText,
+            check_in: '',
+            check_out: ''
+          };
+        }
+
+        if (r.check_type === 'CHECK_IN') {
+          if (!map[dateText].check_in || new Date(r.datetime) < new Date(map[dateText].check_in)) {
+            map[dateText].check_in = r.datetime;
+          }
+        }
+
+        if (r.check_type === 'CHECK_OUT') {
+          if (!map[dateText].check_out || new Date(r.datetime) > new Date(map[dateText].check_out)) {
+            map[dateText].check_out = r.datetime;
+          }
+        }
+      });
+
+      return map;
     }
 
-    function formatDate(value) {
+    function buildCalendarHtml(startText, endText, dailyMap) {
+      const weekHeads = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+
+      const start = new Date(startText);
+      const end = new Date(endText);
+
+      const first = new Date(start);
+      const day = first.getDay();
+      const mondayOffset = day === 0 ? -6 : 1 - day;
+      first.setDate(first.getDate() + mondayOffset);
+
+      let html = '<div class="calendar">';
+
+      weekHeads.forEach(function(w) {
+        html += '<div class="day-head">' + w + '</div>';
+      });
+
+      const current = new Date(first);
+      const todayText = toDateText(new Date());
+
+      while (current <= end || current.getDay() !== 1) {
+        const dateText = toDateText(current);
+        const inRange = current >= start && current <= end;
+        const dayData = dailyMap[dateText];
+
+        let cls = 'day-cell';
+        let content = '';
+
+        if (!inRange) {
+          cls += ' empty-cell';
+        } else {
+          const isToday = dateText === todayText;
+
+          if (dayData && dayData.check_in) {
+            cls += ' present';
+
+            content =
+              '<div class="day-num">' + current.getDate() + '</div>' +
+              '<div class="time-line">เข้า ' + formatTime(dayData.check_in) + '</div>' +
+              '<div class="time-line">ออก ' + formatTime(dayData.check_out) + '</div>';
+          } else {
+            content =
+              '<div class="day-num">' + current.getDate() + '</div>';
+          }
+
+          if (isToday) {
+            cls += ' today';
+            content += '<div class="today-tag"></div>';
+          }
+        }
+
+        html += '<div class="' + cls + '">' + content + '</div>';
+
+        current.setDate(current.getDate() + 1);
+        if (current > end && current.getDay() === 1) break;
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    function formatTime(value) {
       if (!value) return '-';
 
       const d = new Date(value);
       if (isNaN(d.getTime())) return value;
 
-      return d.toLocaleDateString('th-TH', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+      return d.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit'
       });
+    }
+
+    function formatFullThaiDate(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      const weekdays = [
+        'วันอาทิตย์',
+        'วันจันทร์',
+        'วันอังคาร',
+        'วันพุธ',
+        'วันพฤหัสบดี',
+        'วันศุกร์',
+        'วันเสาร์'
+      ];
+
+      const months = [
+        'ม.ค.',
+        'ก.พ.',
+        'มี.ค.',
+        'เม.ย.',
+        'พ.ค.',
+        'มิ.ย.',
+        'ก.ค.',
+        'ส.ค.',
+        'ก.ย.',
+        'ต.ค.',
+        'พ.ย.',
+        'ธ.ค.'
+      ];
+
+      return weekdays[d.getDay()] +
+        'ที่ ' +
+        d.getDate() +
+        ' ' +
+        months[d.getMonth()] +
+        ' ' +
+        String(d.getFullYear() + 543).slice(-2);
+    }
+
+    function toDateText(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+
+      return y + '-' + m + '-' + day;
     }
 
     function showError(message) {
       document.getElementById('app').innerHTML =
         '<div class="card error">' + message + '</div>';
     }
-
-    function translateAction(action) {
-  const map = {
-    CHECK_IN: 'เช็คอินเข้างาน',
-    BREAK_OUT: 'ไปพัก',
-    BREAK_IN: 'กลับจากพัก',
-    CHECK_OUT: 'เช็คเอาท์ออกงาน'
-  };
-
-  return map[action] || action || '-';
-}
-
-function formatDateTime(value) {
-  if (!value) return '-';
-
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
-
-  return d.toLocaleString('th-TH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
 
     main();
   </script>
