@@ -89,16 +89,33 @@
     }
 
     .btn {
-  width: 100%;
-  border: none;
-  border-radius: 18px;
-  padding: 15px;
-  font-size: 16px;
-  font-weight: 800;
-  background: #7fb069;
-  color: white;
-  margin-top: 14px;
-}
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 800;
+      background: #7fb069;
+      color: white;
+      margin-top: 14px;
+    }
+
+    .grid.profile-kpi {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .box.late-box {
+      grid-column: span 2;
+      background: #ffeedd;
+    }
+
+    .btn-sub {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 4px;
+      opacity: 0.9;
+    }
     
   </style>
 </head>
@@ -170,13 +187,13 @@
           ชื่อ: ${p.first_name || ''} ${p.last_name || ''}<br>
           สาขา: ${p.branch_name || p.branch_id || '-'}<br>
           ตำแหน่ง: ${p.position || '-'}<br>
-          สถานะ: ${p.employment_status || '-'} / ${p.status || '-'}<br>
-          เริ่มงาน: ${formatDate(p.start_date)}
+          เริ่มงาน: ${formatDate(p.start_date)}<br>
+          อายุงาน: ${p.service_age_text || '-'}
         </div>
 
         <br>
 
-        <div class="grid">
+        <div class="grid profile-kpi">
           <div class="box">
             <div class="num">${l.sick_remaining || 0}</div>
             <div class="label">ลาป่วยคงเหลือ</div>
@@ -187,19 +204,20 @@
             <div class="label">พักร้อนคงเหลือ</div>
           </div>
 
-          <div class="box">
-            <div class="num">${l.personal_remaining || 0}</div>
-            <div class="label">ลากิจคงเหลือ</div>
-          </div>
-
-          <div class="box">
-            <div class="num">${l.hot_balance || 0}</div>
-            <div class="label">HOT คงเหลือ</div>
+          <div class="box late-box">
+            <div class="num">${p.late_count_current_period || 0}</div>
+            <div class="label">
+              มาสายรอบนี้
+              ${p.late_minutes_current_period ? '<br>รวม ' + p.late_minutes_current_period + ' นาที' : ''}
+            </div>
           </div>
         </div>
         
         <button class="btn" onclick="openContact()">
-        📞 ข้อมูลติดต่อและบุคคลฉุกเฉิน
+          📞 ข้อมูลติดต่อและบุคคลฉุกเฉิน
+          <span class="btn-sub">
+            ${p.contact_complete ? '🟢 ข้อมูลครบถ้วนแล้ว' : '🟠 กรุณากรอกข้อมูลให้ครบ'}
+          </span>
         </button>
 
         <button class="btn" onclick="openAttendanceHistory()">
