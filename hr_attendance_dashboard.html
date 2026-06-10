@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>HR Attendance Dashboard</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .sub {
+      color: #777;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 16px;
+      background: #fff;
+      margin-top: 12px;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 800;
+      background: #7fb069;
+      color: #fff;
+      margin-top: 12px;
+    }
+
+    .branch {
+      background: #fff;
+      border-radius: 20px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    .branch-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .branch-sub {
+      font-size: 13px;
+      color: #777;
+      margin-bottom: 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .box {
+      border-radius: 14px;
+      padding: 12px;
+      text-align: center;
+      background: #eef6e8;
+    }
+
+    .box.orange { background: #fff0d6; }
+    .box.red { background: #ffe2e2; }
+    .box.blue { background: #e6f1ff; }
+    .box.purple { background: #eee8ff; }
+
+    .num {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .loading,
+    .empty,
+    .error {
+      text-align: center;
+      padding: 32px 10px;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="title">Attendance Dashboard</div>
+      <div class="sub">สรุปการเข้างานรายวัน แยกตามสาขา</div>
+
+      <input id="dateInput" class="input" type="date">
+
+      <button class="btn" onclick="loadDashboard()">
+        ดู Dashboard
+      </button>
+    </div>
+
+    <div id="app">
+      <div class="card loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-JT6WkNZ4';
+
+    const GAS_API_URL =
+      'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+    let lineUid = '';
+
+    async function callApi(payload) {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      return await res.json();
+    }
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineUid = profile.userId;
+
+        document.getElementById('dateInput').value = todayText();
+
+        await loadDashboard();
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    async function loadDashboard() {
+      const dateText = document.getElementById('dateInput').value;
+      const app = document.getElementById('app');
+
+      app.innerHTML = '<div class="card loading">กำลังโหลดข้อมูล...</div>';
+
+      try {
+        const res = await callApi({
+          action: 'getHrAttendanceDailySummary',
+          line_uid: lineUid,
+          date: dateText
+        });
+
+        if (!res.success) {
+          showError(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        renderDashboard(res);
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function renderDashboard(res) {
+      const app = document.getElementById('app');
+      const rows = res.rows || [];
+
+      if (!rows.length) {
+        app.innerHTML =
+          '<div class="card empty">ยังไม่มีข้อมูลสรุปของวันนี้</div>';
+        return;
+      }
+
+      app.innerHTML = `
+        <div class="card">
+          <div class="title">${formatDate(res.date)}</div>
+          <div class="sub">จำนวนสาขาที่มีตารางงาน: ${rows.length}</div>
+        </div>
+
+        ${rows.map(renderBranch).join('')}
+      `;
+    }
+
+    function renderBranch(row) {
+      return `
+        <div class="branch">
+          <div class="branch-title">${row.branch_name || row.branch_id}</div>
+          <div class="branch-sub">${row.branch_id}</div>
+
+          <div class="grid">
+            <div class="box">
+              <div class="num">${row.total || 0}</div>
+              <div class="label">ทั้งหมด</div>
+            </div>
+
+            <div class="box">
+              <div class="num">${row.present || 0}</div>
+              <div class="label">มาทำงาน</div>
+            </div>
+
+            <div class="box red">
+              <div class="num">${row.absent || 0}</div>
+              <div class="label">ขาดงาน</div>
+            </div>
+
+            <div class="box orange">
+              <div class="num">${row.late || 0}</div>
+              <div class="label">มาสาย</div>
+            </div>
+
+            <div class="box purple">
+              <div class="num">${row.leave || 0}</div>
+              <div class="label">ลา</div>
+            </div>
+
+            <div class="box blue">
+              <div class="num">${row.off || 0}</div>
+              <div class="label">หยุด</div>
+            </div>
+
+            <div class="box orange">
+              <div class="num">${row.hot || 0}</div>
+              <div class="label">ได้ HOT</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function todayText() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+
+      return y + '-' + m + '-' + day;
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+
+      return d.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML =
+        '<div class="card error">' + message + '</div>';
+    }
+
+    main();
+  </script>
+</body>
+</html>
