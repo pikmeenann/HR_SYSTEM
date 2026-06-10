@@ -468,7 +468,7 @@ function buildCalendarHtml(startText, endText, scheduleMap, holidayMap) {
       content = '';
    } else if (isOffDay) {
       cls += ' off';
-      content = '<div class="day-num">' + current.getDate() + '</div><b>วันหยุดประจำสัปดาห์</b>';
+      content = '<div class="day-num">' + current.getDate() + '</div>';
     } else if (holiday) {
       cls += ' holiday';
       content =
