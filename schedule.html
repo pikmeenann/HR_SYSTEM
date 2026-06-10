@@ -182,16 +182,12 @@
 
     .today-tag {
       position: absolute;
-      top: 2px;
-      right: 2px;
+      top: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
       background: #2f6b2f;
-      color: white;
-      border-radius: 999px;
-      padding: 0px 4px;
-      font-size: 7px;
-      line-height: 12px;
-      height: 12px;
-      font-weight: 700;
+      border-radius: 50%;
     }
     
   </style>
@@ -505,7 +501,7 @@ function buildCalendarHtml(startText, endText, scheduleMap, holidayMap) {
 
     if (isToday && inRange) {
       cls += ' today';
-      content += '<div class="today-tag">วันนี้</div>';
+      content += '<div class="today-tag"></div>';
     }
     
     html += '<div class="' + cls + '">' + content + '</div>';
