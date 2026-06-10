@@ -72,6 +72,88 @@
       background: #fff0f0;
       border-radius: 16px;
     }
+
+    .ot-box {
+  background: #eef6e8;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 14px;
+  font-size: 15px;
+  color: #2f6b2f;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.dot.work { background: #ddd; }
+.dot.off { background: #f4b6b6; }
+.dot.holiday { background: #b8e8b8; }
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.day-head {
+  background: #eef6e8;
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  border-right: 1px solid #ddd;
+}
+
+.day-cell {
+  min-height: 88px;
+  padding: 8px;
+  border-top: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  font-size: 12px;
+  background: #fff;
+}
+
+.day-cell.off {
+  background: #ffe2e2;
+  color: #b22222;
+}
+
+.day-cell.holiday {
+  background: #e4f6df;
+  color: #2f6b2f;
+}
+
+.day-num {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.shift-time {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.empty-cell {
+  background: #fafafa;
+}
+    
   </style>
 </head>
 
@@ -120,7 +202,7 @@
           line_uid: profile.userId
         });
 
-        render(result);
+        renderSchedule(result);
 
       } catch (err) {
         showError(err.message || err);
@@ -244,6 +326,49 @@
   `;
 }
 
+    function renderSchedule(result) {
+  const app = document.getElementById('app');
+
+  document.getElementById('rangeText').innerText =
+    formatFullThaiDate(result.range_start) + ' - ' + formatFullThaiDate(result.range_end);
+
+  const days = result.days || [];
+  const holidays = result.holidays || [];
+
+  if (!days.length) {
+    app.innerHTML =
+      '<div class="card loading">ยังไม่มีตารางงานในรอบนี้<br>กรุณารอ Manager ลงตารางงานให้</div>';
+    return;
+  }
+
+  const scheduleMap = {};
+  days.forEach(function(d) {
+    scheduleMap[toDateText(new Date(d.date))] = d;
+  });
+
+  const holidayMap = {};
+  holidays.forEach(function(h) {
+    holidayMap[h.date] = h;
+  });
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="ot-box">
+        โอทีที่คาดว่าจะได้รับ หากเข้างานตรงตามตารางนี้:
+        <b>${calculateEstimatedOt(days)} ชั่วโมง</b>
+      </div>
+
+      <div class="legend">
+        <span><i class="dot work"></i> วันทำงาน</span>
+        <span><i class="dot off"></i> วันหยุด</span>
+        <span><i class="dot holiday"></i> วันนักขัตฤกษ์</span>
+      </div>
+
+      ${buildCalendarHtml(result.range_start, result.range_end, scheduleMap, holidayMap)}
+    </div>
+  `;
+}
+
     function formatFullThaiDate(value) {
   if (!value) return '-';
 
@@ -283,6 +408,114 @@
   return dayName + 'ที่ ' + day + ' ' + month + ' ' + year;
 }
 
+function buildCalendarHtml(startText, endText, scheduleMap, holidayMap) {
+  const weekHeads = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+
+  const start = new Date(startText);
+  const end = new Date(endText);
+
+  const first = new Date(start);
+  const day = first.getDay(); // Sun=0
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  first.setDate(first.getDate() + mondayOffset);
+
+  let html = '<div class="calendar">';
+
+  weekHeads.forEach(function(w) {
+    html += '<div class="day-head">' + w + '</div>';
+  });
+
+  const current = new Date(first);
+
+  while (current <= end || current.getDay() !== 1) {
+    const dateText = toDateText(current);
+    const inRange = current >= start && current <= end;
+    const sch = scheduleMap[dateText];
+    const holiday = holidayMap[dateText];
+
+    let cls = 'day-cell';
+    let content = '';
+
+    if (!inRange) {
+      cls += ' empty-cell';
+      content = '';
+    } else if (sch && String(sch.shift_name).toUpperCase() === 'OFF') {
+      cls += ' off';
+      content = '<div class="day-num">' + current.getDate() + '</div><b>วันหยุด</b>';
+    } else if (holiday) {
+      cls += ' holiday';
+      content =
+        '<div class="day-num">' + current.getDate() + '</div>' +
+        '<b>' + holiday.holiday_name + '</b><br>' +
+        '<span class="shift-time">' + getShiftText(sch) + '</span>';
+    } else {
+      content =
+        '<div class="day-num">' + current.getDate() + '</div>' +
+        '<span class="shift-time">' + getShiftText(sch) + '</span>';
+    }
+
+    html += '<div class="' + cls + '">' + content + '</div>';
+
+    current.setDate(current.getDate() + 1);
+
+    if (current > end && current.getDay() === 1) break;
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function getShiftText(sch) {
+  if (!sch) return '';
+
+  if (String(sch.shift_name).toUpperCase() === 'LEAVE') {
+    return 'ลา';
+  }
+
+  const start = sch.start_time || '-';
+  const end = sch.end_time || '-';
+
+  return start + ' - ' + end;
+}
+
+function calculateEstimatedOt(days) {
+  let total = 0;
+
+  days.forEach(function(d) {
+    if (!d.start_time || !d.end_time) return;
+    if (String(d.shift_name).toUpperCase() === 'OFF') return;
+    if (String(d.shift_name).toUpperCase() === 'LEAVE') return;
+
+    const minutes = diffMinutes(d.start_time, d.end_time);
+    const breakMinutes = Number(d.break_minutes || 0);
+    const workHours = (minutes - breakMinutes) / 60;
+
+    if (workHours > 8) {
+      total += workHours - 8;
+    }
+  });
+
+  return Math.max(0, total).toFixed(2);
+}
+
+function diffMinutes(start, end) {
+  const s = String(start).split(':');
+  const e = String(end).split(':');
+
+  const sm = Number(s[0]) * 60 + Number(s[1] || 0);
+  const em = Number(e[0]) * 60 + Number(e[1] || 0);
+
+  return em >= sm ? em - sm : em + 1440 - sm;
+}
+
+function toDateText(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+
+  return y + '-' + m + '-' + day;
+}
+    
     main();
   </script>
 </body>
