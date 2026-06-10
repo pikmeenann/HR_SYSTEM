@@ -380,7 +380,7 @@
 
       <div class="legend">
         <span><i class="dot work"></i> วันทำงาน</span>
-        <span><i class="dot off"></i> วันหยุด</span>
+        <span><i class="dot off"></i> วันหยุดประจำสัปดาห์</span>
         <span><i class="dot holiday"></i> วันนักขัตฤกษ์</span>
       </div>
 
@@ -453,15 +453,22 @@ function buildCalendarHtml(startText, endText, scheduleMap, holidayMap) {
     const sch = scheduleMap[dateText];
     const holiday = holidayMap[dateText];
 
+    const isOffDay =
+      sch &&
+      (
+        sch.is_off_day === true ||
+        String(sch.is_off_day).toUpperCase() === 'TRUE'
+      );
+
     let cls = 'day-cell';
     let content = '';
 
     if (!inRange) {
       cls += ' empty-cell';
       content = '';
-    } else if (sch && String(sch.shift_name).toUpperCase() === 'OFF') {
+   } else if (isOffDay) {
       cls += ' off';
-      content = '<div class="day-num">' + current.getDate() + '</div><b>วันหยุด</b>';
+      content = '<div class="day-num">' + current.getDate() + '</div><b>วันหยุดประจำสัปดาห์</b>';
     } else if (holiday) {
       cls += ' holiday';
       content =
