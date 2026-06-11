@@ -268,8 +268,13 @@
       คำนวณ Payroll
       <small>คำนวณจาก Attendance Summary</small>
     </button>
+    <button class="btn" onclick="renderPayrollSummaryForm()">
+  ดูผล Payroll
+  <small>ตรวจยอดรายงวด</small>
+</button>
   </div>
 </div>
+
     `;
   }
 
@@ -561,7 +566,87 @@ function renderPayrollPeriodForm() {
   renderAdmin();
 }
 
-    
+    function renderPayrollSummaryForm() {
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">ดูผล Payroll</div>
+      <div class="sub">กรอกงวดเพื่อดูผลคำนวณเงินเดือน</div>
+    </div>
+
+    <div class="section">
+      <label class="label">Payroll Period</label>
+      <input id="payrollPeriod" class="input" placeholder="เช่น 2026-06">
+
+      <button class="btn-save" onclick="submitViewPayrollSummary()">ดูผล Payroll</button>
+      <button class="btn-back" onclick="renderAdmin()">กลับ</button>
+    </div>
+  `;
+}
+
+    async function submitViewPayrollSummary() {
+  const payrollPeriod = document.getElementById('payrollPeriod').value.trim();
+
+  if (!payrollPeriod) {
+    alert('กรุณากรอก payroll_period เช่น 2026-06');
+    return;
+  }
+
+  const res = await callApi({
+    action: 'getPayrollSummary',
+    line_uid: lineUid,
+    payroll_period: payrollPeriod
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลดผล Payroll ไม่สำเร็จ');
+    return;
+  }
+
+  renderPayrollSummaryResult(res);
+}
+
+    function renderPayrollSummaryResult(res) {
+  const rows = res.rows || [];
+
+  let html = `
+    <div class="head">
+      <div class="title">Payroll ${res.payroll_period}</div>
+      <div class="sub">
+        พนักงาน ${rows.length} คน<br>
+        รวมสุทธิ ${Number(res.total_net_amount || 0).toLocaleString()} บาท
+      </div>
+    </div>
+
+    <button class="btn-back" onclick="renderPayrollSummaryForm()">กลับ</button>
+    <br><br>
+  `;
+
+  if (!rows.length) {
+    html += `<div class="head">ยังไม่มีข้อมูล Payroll งวดนี้</div>`;
+    document.getElementById('app').innerHTML = html;
+    return;
+  }
+
+  rows.forEach(function(r) {
+    html += `
+      <div class="head">
+        <b>${r.employee_code}</b> | ${r.branch_id || '-'}<br>
+        วันทำงาน: ${r.work_days} |
+        ขาด: ${r.absent_days} |
+        ลา: ${r.leave_days}<br>
+        สาย: ${r.late_count} ครั้ง / ${r.late_minutes} นาที<br>
+        OT: ${r.ot_minutes} นาที = ${Number(r.ot_amount || 0).toLocaleString()} บาท<br>
+        หักขาดงาน: ${Number(r.absence_deduct_amount || 0).toLocaleString()} บาท<br>
+        เงินรวม: ${Number(r.gross_amount || 0).toLocaleString()} บาท<br>
+        หักรวม: ${Number(r.deduct_amount || 0).toLocaleString()} บาท<br>
+        <b>สุทธิ: ${Number(r.net_amount || 0).toLocaleString()} บาท</b><br>
+        สถานะ: ${r.status || '-'}
+      </div>
+    `;
+  });
+
+  document.getElementById('app').innerHTML = html;
+}
 
   main();
 </script>
