@@ -264,9 +264,9 @@
       <div class="section">
   <div class="section-title">💵 Payroll</div>
   <div class="grid">
-    <button class="btn" onclick="renderPayrollPeriodForm()">
-      สร้างงวดเงินเดือน
-      <small>งวด 21-20 / จ่ายสิ้นเดือนถัดไป</small>
+    <button class="btn" onclick="renderPayrollBuildForm()">
+      คำนวณ Payroll
+      <small>คำนวณจาก Attendance Summary</small>
     </button>
   </div>
 </div>
@@ -512,6 +512,56 @@ function renderPayrollPeriodForm() {
       <div class="error">${message}</div>
     `;
   }
+
+  function renderPayrollBuildForm() {
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">คำนวณ Payroll</div>
+      <div class="sub">เลือกงวดเงินเดือน แล้วระบบจะคำนวณจาก Attendance_Summary</div>
+    </div>
+
+    <div class="section">
+      <label class="label">Payroll Period</label>
+      <input id="payrollPeriod" class="input" placeholder="เช่น 2026-06">
+
+      <button class="btn-save" onclick="submitBuildPayroll()">คำนวณ Payroll</button>
+      <button class="btn-back" onclick="renderAdmin()">กลับ</button>
+    </div>
+  `;
+}
+
+    async function submitBuildPayroll() {
+  const payrollPeriod = document.getElementById('payrollPeriod').value.trim();
+
+  if (!payrollPeriod) {
+    alert('กรุณากรอก payroll_period เช่น 2026-06');
+    return;
+  }
+
+  if (!confirm('ยืนยันคำนวณ Payroll งวด ' + payrollPeriod + ' ?')) {
+    return;
+  }
+
+  const res = await callApi({
+    action: 'buildPayrollSummary',
+    payroll_period: payrollPeriod
+  });
+
+  if (!res.success) {
+    alert(res.message || 'คำนวณ Payroll ไม่สำเร็จ');
+    return;
+  }
+
+  alert(
+    'คำนวณ Payroll เรียบร้อยแล้ว\n' +
+    'งวด: ' + res.payroll_period + '\n' +
+    'จำนวนพนักงาน: ' + res.count
+  );
+
+  renderAdmin();
+}
+
+    
 
   main();
 </script>
