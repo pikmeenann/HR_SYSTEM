@@ -276,7 +276,7 @@
             <span><i class="dot none"></i> ไม่มีบันทึก</span>
           </div>
 
-          ${buildCalendarHtml(res.range_start, res.range_end, dailyMap)}
+          ${buildCalendarHtml(res.range_start, res.range_end, dailyMap, summary.by_date || {})}
         </div>
       `;
     }
@@ -311,7 +311,7 @@
       return map;
     }
 
-    function buildCalendarHtml(startText, endText, dailyMap) {
+    function buildCalendarHtml(startText, endText, dailyMap, summaryMap) {
       const weekHeads = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
 
       const start = new Date(startText);
@@ -335,6 +335,8 @@
         const dateText = toDateText(current);
         const inRange = current >= start && current <= end;
         const dayData = dailyMap[dateText];
+        const daySummary = summaryMap[dateText] || {};
+        const lateMinutes = Number(daySummary.late_minutes || 0);
 
         let cls = 'day-cell';
         let content = '';
@@ -345,13 +347,16 @@
           const isToday = dateText === todayText;
 
           if (dayData && dayData.check_in) {
-            cls += ' present';
+  cls += lateMinutes > 0 ? ' late' : ' present';
 
-            content =
-              '<div class="day-num">' + current.getDate() + '</div>' +
-              '<div class="time-line">เข้า ' + formatTime(dayData.check_in) + '</div>' +
-              '<div class="time-line">ออก ' + formatTime(dayData.check_out) + '</div>';
-          } else {
+  content =
+    '<div class="day-num">' + current.getDate() + '</div>' +
+    '<div class="time-line">เข้า ' + formatTime(dayData.check_in) + '</div>' +
+    '<div class="time-line">ออก ' + formatTime(dayData.check_out) + '</div>' +
+    (lateMinutes > 0
+      ? '<div class="time-line late-text">สาย ' + lateMinutes + ' นาที</div>'
+      : '');
+} else {
             content =
               '<div class="day-num">' + current.getDate() + '</div>';
           }
