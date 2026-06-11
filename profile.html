@@ -179,6 +179,7 @@
     function renderProfile(res) {
       const p = res.profile || {};
       const l = res.leave_balance || {};
+      const charges = res.charges || [];
       const app = document.getElementById('app');
 
       app.innerHTML = `
@@ -222,7 +223,7 @@
   </div>
 
 </div>
-        
+        ${renderCharges(charges)}
         <button class="btn" onclick="openContact()">
           📞 ข้อมูลติดต่อและบุคคลฉุกเฉิน
           <span class="btn-sub">
@@ -254,6 +255,52 @@
       });
     }
 
+function renderCharges(charges) {
+
+  if (!charges.length) {
+    return `
+      <div class="card">
+        <b>💰 ค่าใช้จ่ายที่มีผลผูกพัน</b><br><br>
+        ไม่มีรายการ
+      </div>
+    `;
+  }
+
+  let html = `
+    <div class="card">
+      <b>💰 ค่าใช้จ่ายที่มีผลผูกพัน</b><br><br>
+  `;
+
+  charges.forEach(function(c) {
+
+    html += `
+      <div style="
+        border:1px solid #eee;
+        border-radius:12px;
+        padding:10px;
+        margin-bottom:10px;
+      ">
+        <b>${c.charge_name || c.charge_type}</b><br>
+
+        จำนวนเงิน:
+        ${Number(c.amount || 0).toLocaleString()} บาท
+        <br>
+
+        วันที่รายการ:
+        ${formatDate(c.charge_event_date)}
+        <br>
+
+        ครบกำหนด:
+        ${formatDate(c.expiry_date)}
+      </div>
+    `;
+  });
+
+  html += '</div>';
+
+  return html;
+}
+    
     function showError(message) {
       document.getElementById('app').innerHTML = `
         <div class="error">${message}</div>
