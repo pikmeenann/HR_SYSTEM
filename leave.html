@@ -162,10 +162,9 @@
         <div class="sub">${p.nickname || ''} · ${p.branch_id || '-'}</div>
 
         <label>ประเภทการลา</label>
-        <select id="leaveType" class="input">
+        <select id="leaveType" class="input" onchange="updateReasonLabel()">
           <option value="">เลือกประเภทการลา</option>
           <option value="SICK">ลาป่วย</option>
-          <option value="PERSONAL">ลากิจ</option>
           <option value="VACATION">ลาพักร้อน</option>
           <option value="OTHER">อื่นๆ</option>
         </select>
@@ -176,8 +175,8 @@
         <label>วันที่สิ้นสุด</label>
         <input id="endDate" type="date" class="input">
 
-        <label>เหตุผล</label>
-        <textarea id="reason" class="input" placeholder="ระบุเหตุผลการลา"></textarea>
+        <label id="reasonLabel">เหตุผล / หมายเหตุ</label>
+        <textarea id="reason" placeholder="ระบุเฉพาะกรณีลาป่วย หรือหมายเหตุเพิ่มเติม"></textarea>
 
         <button class="btn" onclick="submitLeave()">ส่งคำขอลา</button>
 
@@ -245,7 +244,48 @@
       `;
     }
 
+function updateReasonLabel() {
+
+  const leaveType =
+    document.getElementById('leaveType').value;
+
+  const reasonLabel =
+    document.getElementById('reasonLabel');
+
+  const reason =
+    document.getElementById('reason');
+
+  if (leaveType === 'SICK') {
+
+    reasonLabel.innerHTML =
+      'เหตุผล <span style="color:#b22222">*</span>';
+
+    reason.placeholder =
+      'เช่น ไข้ / ปวดท้อง / ไม่สบาย';
+
+  }
+  else if (leaveType === 'VACATION') {
+
+    reasonLabel.innerHTML =
+      'หมายเหตุ';
+
+    reason.placeholder =
+      'ไม่จำเป็นต้องระบุ';
+
+  }
+  else {
+
+    reasonLabel.innerHTML =
+      'เหตุผล / หมายเหตุ';
+
+    reason.placeholder =
+      'ระบุเพิ่มเติม (ถ้ามี)';
+
+  }
+}
+
     main();
+updateReasonLabel();
   </script>
 </body>
 </html>
