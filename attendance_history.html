@@ -333,95 +333,88 @@
     }
 
     function buildCalendarHtml(startText, endText, dailyMap, summaryMap) {
-      const weekHeads = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+  const weekHeads = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
 
-      const start = new Date(startText);
-      const end = new Date(endText);
+  const start = new Date(startText);
+  const end = new Date(endText);
 
-      const first = new Date(start);
-      const day = first.getDay();
-      const mondayOffset = day === 0 ? -6 : 1 - day;
-      first.setDate(first.getDate() + mondayOffset);
+  const first = new Date(start);
+  const day = first.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  first.setDate(first.getDate() + mondayOffset);
 
+  let html = '<div class="calendar">';
 
-      
-      let html = '<div class="calendar">';
+  weekHeads.forEach(function(w) {
+    html += '<div class="day-head">' + w + '</div>';
+  });
 
-      weekHeads.forEach(function(w) {
-        html += '<div class="day-head">' + w + '</div>';
-      });
+  const current = new Date(first);
+  const todayText = toDateText(new Date());
 
-      const current = new Date(first);
-      const todayText = toDateText(new Date());
+  while (current <= end || current.getDay() !== 1) {
+    const dateText = toDateText(current);
+    const inRange = current >= start && current <= end;
 
-      while (current <= end || current.getDay() !== 1) {
-        const dateText = toDateText(current);
-        const inRange = current >= start && current <= end;
-        const dayData = dailyMap[dateText];
-        const daySummary = summaryMap[dateText] || {};
-        const attendanceStatus = daySummary.attendance_status || '';
-        const lateMinutes = Number(daySummary.late_minutes || 0);
+    const dayData = dailyMap[dateText] || null;
+    const daySummary = summaryMap[dateText] || {};
 
-        let cls = 'day-cell';
-        let content = '';
+    const attendanceStatus = daySummary.attendance_status || '';
+    const lateMinutes = Number(daySummary.late_minutes || 0);
 
-      const missingCheckout =
-      dayData &&
-      dayData.check_in &&
-      !dayData.check_out;
+    let cls = 'day-cell';
+    let content = '';
 
-      if (missingCheckout) {
-      cls += ' missing';
+    if (!inRange) {
+      cls += ' empty-cell';
+      content = '';
+    } else {
+      const isToday = dateText === todayText;
+
+      content = '<div class="day-num">' + current.getDate() + '</div>';
+
+      if (attendanceStatus === 'OFF') {
+        cls += ' off';
+        content += '<div class="time-line"><b>หยุด</b></div>';
       }
+      else if (attendanceStatus === 'HOT') {
+        cls += ' hot';
+        content += '<div class="time-line"><b>HOT</b></div>';
+      }
+      else if (dayData && dayData.check_in) {
+        const missingCheckout = !dayData.check_out;
 
-        if (!inRange) {
-          cls += ' empty-cell';
+        if (missingCheckout) {
+          cls += ' missing';
+        } else if (lateMinutes > 0) {
+          cls += ' late';
         } else {
-          const isToday = dateText === todayText;
-
-        if (attendanceStatus === 'OFF') {
-          cls += ' off';
-
-          content = '<div class="day-num">' +
-          current.getDate() + '</div>';
+          cls += ' present';
         }
-        else if (attendanceStatus === 'HOT') {
-          cls += ' hot';
-          
-          content = '<div class="day-num">' +
-          current.getDate() + '</div>' + '<div class="time-line"><b>HOT</b></div>';
-        }
-          
-          if (dayData && dayData.check_in) {
-            cls += lateMinutes > 0 ? ' late' : ' present';
 
-            content =
-            '<div class="day-num">' + current.getDate() + '</div>' +
-            '<div class="time-line">เข้า ' + formatTime(dayData.check_in) + '</div>' +
-            '<div class="time-line">ออก ' + formatTime(dayData.check_out) + '</div>' +
-            (lateMinutes > 0
+        content +=
+          '<div class="time-line">เข้า ' + formatTime(dayData.check_in) + '</div>' +
+          '<div class="time-line">ออก ' + formatTime(dayData.check_out) + '</div>' +
+          (lateMinutes > 0
             ? '<div class="time-line late-text">สาย ' + lateMinutes + ' นาที</div>'
             : '');
-        } else {
-            content =
-              '<div class="day-num">' + current.getDate() + '</div>';
-          }
-
-          if (isToday) {
-            cls += ' today';
-            content += '<div class="today-tag"></div>';
-          }
-        }
-
-        html += '<div class="' + cls + '">' + content + '</div>';
-
-        current.setDate(current.getDate() + 1);
-        if (current > end && current.getDay() === 1) break;
       }
 
-      html += '</div>';
-      return html;
+      if (isToday) {
+        cls += ' today';
+        content += '<div class="today-tag"></div>';
+      }
     }
+
+    html += '<div class="' + cls + '">' + content + '</div>';
+
+    current.setDate(current.getDate() + 1);
+    if (current > end && current.getDay() === 1) break;
+  }
+
+  html += '</div>';
+  return html;
+}
 
     function formatTime(value) {
       if (!value) return '-';
