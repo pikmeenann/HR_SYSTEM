@@ -189,18 +189,6 @@ async function main(){
   }
 }
 
-function translateLeaveType(type){
-
-  const map = {
-    SICK:'ลาป่วย',
-    PERSONAL:'ลากิจ',
-    VACATION:'พักร้อน',
-    HOT:'ใช้ HOT'
-  };
-
-  return map[type] || type || '-';
-}
-
 function translateStatus(status){
 
   const map = {
@@ -347,11 +335,11 @@ function renderLeaveCard(row) {
 }
 
 function translateLeaveType(type) {
-
   const map = {
     SICK: 'ลาป่วย',
+    PERSONAL: 'ลากิจ',
     VACATION: 'พักร้อน',
-    PERSONAL: 'ลากิจ'
+    HOT: 'ใช้ HOT'
   };
 
   return map[type] || type || '-';
