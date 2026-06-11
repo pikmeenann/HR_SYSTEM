@@ -105,7 +105,6 @@
     }
 
     .box.late-box {
-      grid-column: span 2;
       background: #ffeedd;
     }
 
@@ -200,29 +199,30 @@
         <div class="grid profile-kpi">
           <div class="box">
             <div class="num">${l.sick_remaining || 0}</div>
-            <div class="label">ลาป่วยคงเหลือ</div>
-          </div>
+            <div class="grid profile-kpi">
+  <div class="box">
+    <div class="num">${l.sick_remaining || 0}</div>
+    <div class="label">ลาป่วยคงเหลือ</div>
+  </div>
 
-          <div class="box">
-            <div class="num">${l.vacation_remaining || 0}</div>
-            <div class="label">พักร้อนคงเหลือ</div>
-          </div>
+  <div class="box">
+    <div class="num">${l.vacation_remaining || 0}</div>
+    <div class="label">พักร้อนคงเหลือ</div>
+  </div>
 
-          <div class="box late-box">
-            <div class="num">${p.late_count_current_period || 0}</div>
-            <div class="label">
-              มาสาย<br>รอบปีนี้
-              ${p.late_minutes_current_period ? '<br>รวม ' + p.late_minutes_current_period + ' นาที' : ''}
-            </div>
-          </div>
+  <div class="box late-box">
+    <div class="num">${p.late_count_current_period || 0}</div>
+    <div class="label">
+      มาสาย<br>รอบปีนี้
+      ${p.late_minutes_current_period ? '<br>รวม ' + p.late_minutes_current_period + ' นาที' : ''}
+    </div>
+  </div>
 
-          <div class="box absent-box">
-            <div class="num">${p.over_absent_count_this_year || 0}</div>
-            <div class="label">หยุดเกิน<br>รอบปีนี้</div>
-          </div>
-
-          </div>
-        </div>
+  <div class="box absent-box">
+    <div class="num">${p.over_absent_count_this_year || 0}</div>
+    <div class="label">หยุดเกิน<br>รอบปีนี้</div>
+  </div>
+</div>
         
         <button class="btn" onclick="openContact()">
           📞 ข้อมูลติดต่อและบุคคลฉุกเฉิน
