@@ -251,8 +251,13 @@
         <div class="section-title">💰 ค่าใช้จ่ายพนักงาน</div>
         <div class="grid">
           <button class="btn" onclick="renderEmployeeChargeForm()">
-            ค่าใช้จ่าย
+            เพิ่มค่าใช้จ่าย
             <small>ยูนิฟอร์ม / ตรวจสุขภาพ / เงินหัก</small>
+          </button>
+
+          <button class="btn" onclick="renderEmployeeChargeList()">
+            จัดการรายการ
+            <small>ดู / ปิดรายการค่าใช้จ่าย</small>
           </button>
         </div>
       </div>
@@ -352,6 +357,98 @@
     alert('บันทึกค่าใช้จ่ายเรียบร้อยแล้ว');
     renderAdmin();
   }
+
+  async function renderEmployeeChargeList() {
+  const res = await callApi({
+    action: 'getEmployeeChargesAdminData',
+    line_uid: lineUid
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลดรายการไม่สำเร็จ');
+    return;
+  }
+
+  const charges = res.charges || [];
+
+  let html = `
+    <div class="head">
+      <div class="title">จัดการค่าใช้จ่าย</div>
+      <div class="sub">ดูและปิดรายการที่หมดเงื่อนไขแล้ว</div>
+    </div>
+
+    <button class="btn-back" onclick="renderAdmin()">กลับ</button>
+    <br><br>
+  `;
+
+  if (!charges.length) {
+    html += `<div class="head">ยังไม่มีรายการค่าใช้จ่าย</div>`;
+    document.getElementById('app').innerHTML = html;
+    return;
+  }
+
+  charges.forEach(function(c) {
+    const active = String(c.active || '').trim() === 'TRUE';
+    const deducted = String(c.is_deducted || '').trim() === 'TRUE';
+
+    let statusText = 'ปิดแล้ว';
+    if (active && !deducted) statusText = 'ยังมีผล';
+    if (deducted) statusText = 'หักแล้ว';
+
+    html += `
+      <div class="head">
+        <b>${c.charge_name || c.charge_type || '-'}</b><br>
+        ${c.employee_code || '-'} ${c.employee_name || ''}<br>
+        จำนวนเงิน: ${Number(c.amount || 0).toLocaleString()} บาท<br>
+        วันที่รายการ: ${formatDate(c.charge_event_date)}<br>
+        ครบกำหนด: ${formatDate(c.expiry_date)}<br>
+        สถานะ: <b>${statusText}</b><br>
+        ${c.note ? 'หมายเหตุ: ' + c.note + '<br>' : ''}
+
+        ${
+          active && !deducted
+            ? `<button class="btn-back" onclick="closeCharge('${c.charge_id}')">ปิดรายการ</button>`
+            : ''
+        }
+      </div>
+    `;
+  });
+
+  document.getElementById('app').innerHTML = html;
+}
+
+  async function closeCharge(chargeId) {
+  if (!confirm('ยืนยันปิดรายการนี้?')) return;
+
+  const res = await callApi({
+    action: 'closeEmployeeCharge',
+    data: {
+      line_uid: lineUid,
+      charge_id: chargeId
+    }
+  });
+
+  if (!res.success) {
+    alert(res.message || 'ปิดรายการไม่สำเร็จ');
+    return;
+  }
+
+  alert('ปิดรายการเรียบร้อยแล้ว');
+  renderEmployeeChargeList();
+}
+
+  function formatDate(value) {
+  if (!value) return '-';
+
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+
+  return d.toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+}
 
   function showError(message) {
     document.getElementById('app').innerHTML = `
