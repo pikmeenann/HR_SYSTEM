@@ -261,6 +261,15 @@
           </button>
         </div>
       </div>
+      <div class="section">
+  <div class="section-title">💵 Payroll</div>
+  <div class="grid">
+    <button class="btn" onclick="renderPayrollPeriodForm()">
+      สร้างงวดเงินเดือน
+      <small>งวด 21-20 / จ่ายสิ้นเดือนถัดไป</small>
+    </button>
+  </div>
+</div>
     `;
   }
 
@@ -417,6 +426,54 @@
   document.getElementById('app').innerHTML = html;
 }
 
+function renderPayrollPeriodForm() {
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">สร้างงวดเงินเดือน</div>
+      <div class="sub">ระบบจะสร้างช่วงวันที่ 21 ถึง 20 ให้อัตโนมัติ</div>
+    </div>
+
+    <div class="section">
+      <label class="label">Payroll Period</label>
+      <input id="payrollPeriod" class="input" placeholder="เช่น 2026-06">
+
+      <button class="btn-save" onclick="submitPayrollPeriod()">สร้างงวด</button>
+      <button class="btn-back" onclick="renderAdmin()">กลับ</button>
+    </div>
+  `;
+}
+
+  async function submitPayrollPeriod() {
+  const payrollPeriod = document.getElementById('payrollPeriod').value.trim();
+
+  if (!payrollPeriod) {
+    alert('กรุณากรอก payroll_period เช่น 2026-06');
+    return;
+  }
+
+  const res = await callApi({
+    action: 'createPayrollPeriod',
+    payroll_period: payrollPeriod
+  });
+
+  if (!res.success) {
+    alert(res.message || 'สร้างงวดไม่สำเร็จ');
+    return;
+  }
+
+  alert(
+    'สร้างงวดเรียบร้อยแล้ว\\n' +
+    'งวด: ' + res.payroll_period + '\\n' +
+    'เริ่ม: ' + res.start_date + '\\n' +
+    'สิ้นสุด: ' + res.end_date + '\\n' +
+    'จ่าย: ' + res.pay_date
+  );
+
+  renderAdmin();
+}
+
+  
+    
   async function closeCharge(chargeId) {
   if (!confirm('ยืนยันปิดรายการนี้?')) return;
 
