@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>HR Admin Center</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f7f3e8;
+      color: #2f2f2f;
+    }
+
+    .wrap {
+      max-width: 460px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .head {
+      background: #fff;
+      border-radius: 26px;
+      padding: 22px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 26px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+
+    .sub {
+      font-size: 14px;
+      color: #777;
+    }
+
+    .section {
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 900;
+      margin: 14px 4px 10px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      border: none;
+      background: #fff;
+      border-radius: 20px;
+      padding: 18px 12px;
+      min-height: 88px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.07);
+      font-size: 15px;
+      font-weight: 800;
+      color: #2f2f2f;
+      text-align: center;
+    }
+
+    .btn small {
+      display: block;
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #777;
+      line-height: 1.35;
+    }
+
+    .loading,
+    .error {
+      background: #fff;
+      border-radius: 20px;
+      padding: 24px;
+      text-align: center;
+      color: #777;
+    }
+
+    .error {
+      color: #a33;
+      background: #fff0f0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div id="app">
+      <div class="loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    const LIFF_ID = '2010317944-82Rv6kVa';
+
+    const URLS = {
+      hrDashboard: 'https://liff.line.me/2010317944-JT6WkNZ4',
+      dashboard: 'https://liff.line.me/2010317944-qrJlENj0',
+      employeeApprove: 'https://liff.line.me/2010317944-CjJMkJ3I',
+      employeeList: 'https://liff.line.me/2010317944-Nwoclupm',
+      employeeDetail: 'https://liff.line.me/2010317944-Iu21jArf',
+      scheduleAdmin: 'https://liff.line.me/2010317944-Gkh7the0',
+      leaveApprove: 'https://liff.line.me/2010317944-6koLiYjX'
+    };
+
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        renderAdmin();
+
+      } catch (err) {
+        showError(err.message || err);
+      }
+    }
+
+    function renderAdmin() {
+      document.getElementById('app').innerHTML = `
+        <div class="head">
+          <div class="title">HR Admin Center</div>
+          <div class="sub">ศูนย์รวมเมนูสำหรับผู้จัดการ / HR / เจ้าของ</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">📊 ภาพรวม</div>
+          <div class="grid">
+            <button class="btn" onclick="openPage('hrDashboard')">
+              HR Dashboard
+              <small>ภาพรวม HR รายวัน</small>
+            </button>
+
+            <button class="btn" onclick="openPage('dashboard')">
+              Dashboard
+              <small>ภาพรวมระบบ</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">👥 พนักงาน</div>
+          <div class="grid">
+            <button class="btn" onclick="openPage('employeeList')">
+              รายชื่อพนักงาน
+              <small>ดูข้อมูลพนักงานทั้งหมด</small>
+            </button>
+
+            <button class="btn" onclick="openPage('employeeApprove')">
+              อนุมัติพนักงาน
+              <small>อนุมัติคนสมัครใหม่</small>
+            </button>
+
+            <button class="btn" onclick="openPage('employeeDetail')">
+              รายละเอียดพนักงาน
+              <small>ค้นหาและดูข้อมูลรายคน</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">📅 ตารางงาน / การลา</div>
+          <div class="grid">
+            <button class="btn" onclick="openPage('scheduleAdmin')">
+              จัดตารางงาน
+              <small>เพิ่ม / แก้ไขตารางงาน</small>
+            </button>
+
+            <button class="btn" onclick="openPage('leaveApprove')">
+              อนุมัติใบลา
+              <small>ตรวจสอบคำขอลา</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">💰 ค่าใช้จ่ายพนักงาน</div>
+          <div class="grid">
+            <button class="btn" onclick="alert('ขั้นต่อไปจะทำเมนูนี้')">
+              ค่าใช้จ่าย
+              <small>ยูนิฟอร์ม / ตรวจสุขภาพ / เงินหัก</small>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function openPage(key) {
+      window.location.href = URLS[key];
+    }
+
+    function showError(message) {
+      document.getElementById('app').innerHTML = `
+        <div class="error">${message}</div>
+      `;
+    }
+
+    main();
+  </script>
+</body>
+</html>
