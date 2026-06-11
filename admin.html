@@ -93,6 +93,47 @@
       color: #a33;
       background: #fff0f0;
     }
+
+    .label {
+      display: block;
+      font-size: 13px;
+      font-weight: 800;
+      margin: 12px 4px 6px;
+    }
+
+    .input {
+      width: 100%;
+      border: none;
+      border-radius: 16px;
+      padding: 14px;
+      font-size: 15px;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    }
+
+    .btn-save {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 900;
+      background: #7fb069;
+      color: white;
+      margin-top: 18px;
+    }
+
+    .btn-back {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 900;
+      background: #ddd;
+      color: #333;
+      margin-top: 10px;
+    }
   </style>
 </head>
 
@@ -104,114 +145,202 @@
   </div>
 
   <script>
-    const LIFF_ID = '2010317944-82Rv6kVa';
+  let lineUid = '';
 
-    const URLS = {
-      hrDashboard: 'https://liff.line.me/2010317944-JT6WkNZ4',
-      dashboard: 'https://liff.line.me/2010317944-qrJlENj0',
-      employeeApprove: 'https://liff.line.me/2010317944-CjJMkJ3I',
-      employeeList: 'https://liff.line.me/2010317944-Nwoclupm',
-      employeeDetail: 'https://liff.line.me/2010317944-Iu21jArf',
-      scheduleAdmin: 'https://liff.line.me/2010317944-Gkh7the0',
-      leaveApprove: 'https://liff.line.me/2010317944-6koLiYjX'
+  const LIFF_ID = '2010317944-82Rv6kVa';
+
+  const GAS_API_URL =
+    'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
+
+  const URLS = {
+    hrDashboard: 'https://liff.line.me/2010317944-JT6WkNZ4',
+    dashboard: 'https://liff.line.me/2010317944-qrJlENj0',
+    employeeApprove: 'https://liff.line.me/2010317944-CjJMkJ3I',
+    employeeList: 'https://liff.line.me/2010317944-Nwoclupm',
+    employeeDetail: 'https://liff.line.me/2010317944-Iu21jArf',
+    scheduleAdmin: 'https://liff.line.me/2010317944-Gkh7the0',
+    leaveApprove: 'https://liff.line.me/2010317944-6koLiYjX'
+  };
+
+  async function main() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      const profile = await liff.getProfile();
+      lineUid = profile.userId;
+
+      renderAdmin();
+
+    } catch (err) {
+      showError(err.message || err);
+    }
+  }
+
+  async function callApi(payload) {
+    const res = await fetch(GAS_API_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    return await res.json();
+  }
+
+  function renderAdmin() {
+    document.getElementById('app').innerHTML = `
+      <div class="head">
+        <div class="title">HR Admin Center</div>
+        <div class="sub">ศูนย์รวมเมนูสำหรับผู้จัดการ / HR / เจ้าของ</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">📊 ภาพรวม</div>
+        <div class="grid">
+          <button class="btn" onclick="openPage('hrDashboard')">
+            HR Dashboard
+            <small>ภาพรวม HR รายวัน</small>
+          </button>
+
+          <button class="btn" onclick="openPage('dashboard')">
+            Dashboard
+            <small>ภาพรวมระบบ</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">👥 พนักงาน</div>
+        <div class="grid">
+          <button class="btn" onclick="openPage('employeeList')">
+            รายชื่อพนักงาน
+            <small>ดูข้อมูลพนักงานทั้งหมด</small>
+          </button>
+
+          <button class="btn" onclick="openPage('employeeApprove')">
+            อนุมัติพนักงาน
+            <small>อนุมัติคนสมัครใหม่</small>
+          </button>
+
+          <button class="btn" onclick="openPage('employeeDetail')">
+            รายละเอียดพนักงาน
+            <small>ค้นหาและดูข้อมูลรายคน</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">📅 ตารางงาน / การลา</div>
+        <div class="grid">
+          <button class="btn" onclick="openPage('scheduleAdmin')">
+            จัดตารางงาน
+            <small>เพิ่ม / แก้ไขตารางงาน</small>
+          </button>
+
+          <button class="btn" onclick="openPage('leaveApprove')">
+            อนุมัติใบลา
+            <small>ตรวจสอบคำขอลา</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">💰 ค่าใช้จ่ายพนักงาน</div>
+        <div class="grid">
+          <button class="btn" onclick="renderEmployeeChargeForm()">
+            ค่าใช้จ่าย
+            <small>ยูนิฟอร์ม / ตรวจสุขภาพ / เงินหัก</small>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function openPage(key) {
+    window.location.href = URLS[key];
+  }
+
+  function renderEmployeeChargeForm() {
+    document.getElementById('app').innerHTML = `
+      <div class="head">
+        <div class="title">ค่าใช้จ่ายพนักงาน</div>
+        <div class="sub">เพิ่มรายการที่มีผลผูกพัน เช่น ยูนิฟอร์ม / ตรวจสุขภาพ</div>
+      </div>
+
+      <div class="section">
+        <label class="label">รหัสพนักงาน</label>
+        <input id="chargeEmployeeCode" class="input" placeholder="เช่น E001">
+
+        <label class="label">ประเภทค่าใช้จ่าย</label>
+        <select id="chargeType" class="input">
+          <option value="UNIFORM">ยูนิฟอร์ม</option>
+          <option value="HEALTH_CHECK">ตรวจสุขภาพ</option>
+          <option value="OTHER">อื่นๆ</option>
+        </select>
+
+        <label class="label">ชื่อรายการ</label>
+        <input id="chargeName" class="input" placeholder="เช่น ยูนิฟอร์ม 1 ชุด">
+
+        <label class="label">จำนวนเงิน</label>
+        <input id="chargeAmount" class="input" type="number" placeholder="เช่น 500">
+
+        <label class="label">วันที่เกิดรายการ</label>
+        <input id="chargeEventDate" class="input" type="date">
+
+        <label class="label">มีผลผูกพันกี่ปี</label>
+        <input id="chargeYears" class="input" type="number" value="1">
+
+        <label class="label">หมายเหตุ</label>
+        <textarea id="chargeNote" class="input" rows="3"></textarea>
+
+        <button class="btn-save" onclick="submitEmployeeCharge()">บันทึกค่าใช้จ่าย</button>
+        <button class="btn-back" onclick="renderAdmin()">กลับ</button>
+      </div>
+    `;
+  }
+
+  async function submitEmployeeCharge() {
+    const data = {
+      line_uid: lineUid,
+      employee_code: document.getElementById('chargeEmployeeCode').value.trim(),
+      charge_type: document.getElementById('chargeType').value,
+      charge_name: document.getElementById('chargeName').value.trim(),
+      amount: document.getElementById('chargeAmount').value,
+      charge_event_date: document.getElementById('chargeEventDate').value,
+      deduct_if_resign_before_years: document.getElementById('chargeYears').value,
+      note: document.getElementById('chargeNote').value.trim()
     };
 
-    async function main() {
-      try {
-        await liff.init({ liffId: LIFF_ID });
+    if (!data.employee_code) return alert('กรุณากรอกรหัสพนักงาน');
+    if (!data.charge_name) return alert('กรุณากรอกชื่อรายการ');
+    if (!data.amount) return alert('กรุณากรอกจำนวนเงิน');
+    if (!data.charge_event_date) return alert('กรุณาเลือกวันที่เกิดรายการ');
 
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
+    const res = await callApi({
+      action: 'saveEmployeeCharge',
+      data: data
+    });
 
-        renderAdmin();
-
-      } catch (err) {
-        showError(err.message || err);
-      }
+    if (!res.success) {
+      alert(res.message || 'บันทึกไม่สำเร็จ');
+      return;
     }
 
-    function renderAdmin() {
-      document.getElementById('app').innerHTML = `
-        <div class="head">
-          <div class="title">HR Admin Center</div>
-          <div class="sub">ศูนย์รวมเมนูสำหรับผู้จัดการ / HR / เจ้าของ</div>
-        </div>
+    alert('บันทึกค่าใช้จ่ายเรียบร้อยแล้ว');
+    renderAdmin();
+  }
 
-        <div class="section">
-          <div class="section-title">📊 ภาพรวม</div>
-          <div class="grid">
-            <button class="btn" onclick="openPage('hrDashboard')">
-              HR Dashboard
-              <small>ภาพรวม HR รายวัน</small>
-            </button>
+  function showError(message) {
+    document.getElementById('app').innerHTML = `
+      <div class="error">${message}</div>
+    `;
+  }
 
-            <button class="btn" onclick="openPage('dashboard')">
-              Dashboard
-              <small>ภาพรวมระบบ</small>
-            </button>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">👥 พนักงาน</div>
-          <div class="grid">
-            <button class="btn" onclick="openPage('employeeList')">
-              รายชื่อพนักงาน
-              <small>ดูข้อมูลพนักงานทั้งหมด</small>
-            </button>
-
-            <button class="btn" onclick="openPage('employeeApprove')">
-              อนุมัติพนักงาน
-              <small>อนุมัติคนสมัครใหม่</small>
-            </button>
-
-            <button class="btn" onclick="openPage('employeeDetail')">
-              รายละเอียดพนักงาน
-              <small>ค้นหาและดูข้อมูลรายคน</small>
-            </button>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">📅 ตารางงาน / การลา</div>
-          <div class="grid">
-            <button class="btn" onclick="openPage('scheduleAdmin')">
-              จัดตารางงาน
-              <small>เพิ่ม / แก้ไขตารางงาน</small>
-            </button>
-
-            <button class="btn" onclick="openPage('leaveApprove')">
-              อนุมัติใบลา
-              <small>ตรวจสอบคำขอลา</small>
-            </button>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">💰 ค่าใช้จ่ายพนักงาน</div>
-          <div class="grid">
-            <button class="btn" onclick="alert('ขั้นต่อไปจะทำเมนูนี้')">
-              ค่าใช้จ่าย
-              <small>ยูนิฟอร์ม / ตรวจสุขภาพ / เงินหัก</small>
-            </button>
-          </div>
-        </div>
-      `;
-    }
-
-    function openPage(key) {
-      window.location.href = URLS[key];
-    }
-
-    function showError(message) {
-      document.getElementById('app').innerHTML = `
-        <div class="error">${message}</div>
-      `;
-    }
-
-    main();
-  </script>
+  main();
+</script>
+  
 </body>
 </html>
