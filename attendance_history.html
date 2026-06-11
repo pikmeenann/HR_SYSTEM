@@ -196,6 +196,10 @@
     .day-cell.hot .day-num {
       color: #2f8f2f;
     }
+
+    .day-cell.missing {
+      background: #fff7cc;
+    }
     
   </style>
 </head>
@@ -339,6 +343,15 @@
       const mondayOffset = day === 0 ? -6 : 1 - day;
       first.setDate(first.getDate() + mondayOffset);
 
+      const missingCheckout =
+      dayData &&
+      dayData.check_in &&
+      !dayData.check_out;
+
+      if (missingCheckout) {
+      cls += ' missing';
+      }
+      
       let html = '<div class="calendar">';
 
       weekHeads.forEach(function(w) {
