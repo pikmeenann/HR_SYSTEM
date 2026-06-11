@@ -116,6 +116,10 @@
       margin-top: 4px;
       opacity: 0.9;
     }
+
+    .absent-box {
+      background: #ffe2e2;
+    }
     
   </style>
 </head>
@@ -209,9 +213,10 @@
             <div class="label">
               มาสาย<br>รอบปีนี้
               ${p.late_minutes_current_period ? '<br>รวม ' + p.late_minutes_current_period + ' นาที' : ''}
-            </div></div>
+            </div>
+          </div>
 
-          <div class="summary-box red">
+          <div class="box absent-box">
             <div class="num">${p.over_absent_count_this_year || 0}</div>
             <div class="label">หยุดเกิน<br>รอบปีนี้</div>
           </div>
