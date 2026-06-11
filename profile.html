@@ -207,9 +207,15 @@
           <div class="box late-box">
             <div class="num">${p.late_count_current_period || 0}</div>
             <div class="label">
-              มาสายรอบนี้
+              มาสาย<br>รอบปีนี้
               ${p.late_minutes_current_period ? '<br>รวม ' + p.late_minutes_current_period + ' นาที' : ''}
             </div>
+
+          <div class="summary-box red">
+            <div class="num">${summary.over_absent_count || 0}</div>
+            <div class="label">หยุดเกิน<br>รอบปีนี้</div>
+          </div>
+
           </div>
         </div>
         
