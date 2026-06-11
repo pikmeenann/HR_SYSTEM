@@ -180,6 +180,23 @@
       background: #fff0f0;
       border-radius: 16px;
     }
+
+    .day-cell.off {
+      background: #ffe2e2;
+    }
+
+    .day-cell.hot {
+      background: #e4f6df;
+    }
+
+    .day-cell.off .day-num {
+      color: #b22222;
+    }
+
+    .day-cell.hot .day-num {
+      color: #2f8f2f;
+    }
+    
   </style>
 </head>
 
@@ -336,6 +353,7 @@
         const inRange = current >= start && current <= end;
         const dayData = dailyMap[dateText];
         const daySummary = summaryMap[dateText] || {};
+        const attendanceStatus = daySummary.attendance_status || '';
         const lateMinutes = Number(daySummary.late_minutes || 0);
 
         let cls = 'day-cell';
@@ -346,17 +364,30 @@
         } else {
           const isToday = dateText === todayText;
 
-          if (dayData && dayData.check_in) {
-  cls += lateMinutes > 0 ? ' late' : ' present';
+        if (attendanceStatus === 'OFF') {
+          cls += ' off';
 
-  content =
-    '<div class="day-num">' + current.getDate() + '</div>' +
-    '<div class="time-line">เข้า ' + formatTime(dayData.check_in) + '</div>' +
-    '<div class="time-line">ออก ' + formatTime(dayData.check_out) + '</div>' +
-    (lateMinutes > 0
-      ? '<div class="time-line late-text">สาย ' + lateMinutes + ' นาที</div>'
-      : '');
-} else {
+          content = '<div class="day-num">' +
+          current.getDate() + '</div>';
+        }
+        else if (attendanceStatus === 'HOT') {
+          cls += ' hot';
+          
+          content = '<div class="day-num">' +
+          current.getDate() + '</div>' + '<div class="time-line"><b>HOT</b></div>';
+        }
+          
+          if (dayData && dayData.check_in) {
+            cls += lateMinutes > 0 ? ' late' : ' present';
+
+            content =
+            '<div class="day-num">' + current.getDate() + '</div>' +
+            '<div class="time-line">เข้า ' + formatTime(dayData.check_in) + '</div>' +
+            '<div class="time-line">ออก ' + formatTime(dayData.check_out) + '</div>' +
+            (lateMinutes > 0
+            ? '<div class="time-line late-text">สาย ' + lateMinutes + ' นาที</div>'
+            : '');
+        } else {
             content =
               '<div class="day-num">' + current.getDate() + '</div>';
           }
