@@ -87,6 +87,38 @@ body{
 .error{
   color:#b22222;
 }
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.summary-box {
+  background: #eef6e8;
+  border-radius: 16px;
+  padding: 12px;
+  text-align: center;
+}
+
+.summary-box.orange {
+  background: #fff0d6;
+}
+
+.summary-box.red {
+  background: #ffe2e2;
+}
+
+.num {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.label {
+  font-size: 12px;
+  color: #666;
+}
+  
 </style>
 </head>
 
@@ -259,6 +291,156 @@ function showError(message){
     ${message}
   </div>
   `;
+}
+
+function renderHistory(res) {
+  const emp = res.employee || {};
+  const rows = res.rows || [];
+  const summary = res.summary || {};
+
+  document.getElementById('employeeInfo').innerHTML =
+    ${emp.nickname || ''} · ${emp.employee_code || ''}<br> +
+    `รอบ ${formatFullThaiDate(res.range_start)} - ${formatFullThaiDate(res.range_end)}`;
+
+  const app = document.getElementById('app');
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="summary-grid">
+
+        <div class="summary-box">
+          <div class="num">${summary.sick_used || 0}</div>
+          <div class="label">ลาป่วยใช้แล้ว</div>
+        </div>
+
+        <div class="summary-box">
+          <div class="num">${summary.vacation_used || 0}</div>
+          <div class="label">พักร้อนใช้แล้ว</div>
+        </div>
+
+        <div class="summary-box orange">
+          <div class="num">${summary.pending_count || 0}</div>
+          <div class="label">รออนุมัติ</div>
+        </div>
+
+        <div class="summary-box red">
+          <div class="num">${summary.rejected_count || 0}</div>
+          <div class="label">ไม่อนุมัติ</div>
+        </div>
+
+      </div>
+    </div>
+
+    ${
+      rows.length
+      ? rows.map(renderLeaveCard).join('')
+      : '<div class="card empty">ยังไม่มีประวัติการลาในรอบนี้</div>'
+    }
+  `;
+}
+
+function renderLeaveCard(row) {
+
+  const statusInfo = getLeaveStatusInfo(row.status);
+
+  return `
+    <div class="card">
+
+      <div style="
+        font-size:18px;
+        font-weight:800;
+        margin-bottom:8px;
+      ">
+        ${statusInfo.icon}
+        ${statusInfo.label}
+      </div>
+
+      <div style="
+        font-size:16px;
+        font-weight:700;
+        margin-bottom:8px;
+      ">
+        ${translateLeaveType(row.leave_type)}
+      </div>
+
+      <div class="sub">
+        ${formatDate(row.start_date)}
+        ${
+          row.start_date !== row.end_date
+          ? ' - ' + formatDate(row.end_date)
+          : ''
+        }
+      </div>
+
+      <div style="margin-top:10px;">
+        จำนวนวัน:
+        <b>${row.total_days}</b>
+      </div>
+
+      <div style="margin-top:10px;">
+        เหตุผล:
+        <br>
+        ${row.reason || '-'}
+      </div>
+
+      ${
+        row.note
+        ? `
+        <div style="
+          margin-top:10px;
+          color:#a33;
+        ">
+          หมายเหตุ:
+          <br>
+          ${row.note}
+        </div>
+        `
+        : ''
+      }
+
+    </div>
+  `;
+}
+
+function translateLeaveType(type) {
+
+  const map = {
+    SICK: 'ลาป่วย',
+    VACATION: 'พักร้อน',
+    PERSONAL: 'ลากิจ'
+  };
+
+  return map[type] || type || '-';
+}
+
+function getLeaveStatusInfo(status) {
+
+  switch (status) {
+
+    case 'APPROVED':
+      return {
+        icon: '🟢',
+        label: 'อนุมัติแล้ว'
+      };
+
+    case 'PENDING':
+      return {
+        icon: '🟡',
+        label: 'รออนุมัติ'
+      };
+
+    case 'REJECTED':
+      return {
+        icon: '🔴',
+        label: 'ไม่อนุมัติ'
+      };
+
+    default:
+      return {
+        icon: '⚪',
+        label: status || '-'
+      };
+  }
 }
 
 main();
