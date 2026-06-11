@@ -343,14 +343,7 @@
       const mondayOffset = day === 0 ? -6 : 1 - day;
       first.setDate(first.getDate() + mondayOffset);
 
-      const missingCheckout =
-      dayData &&
-      dayData.check_in &&
-      !dayData.check_out;
 
-      if (missingCheckout) {
-      cls += ' missing';
-      }
       
       let html = '<div class="calendar">';
 
@@ -371,6 +364,15 @@
 
         let cls = 'day-cell';
         let content = '';
+
+      const missingCheckout =
+      dayData &&
+      dayData.check_in &&
+      !dayData.check_out;
+
+      if (missingCheckout) {
+      cls += ' missing';
+      }
 
         if (!inRange) {
           cls += ' empty-cell';
