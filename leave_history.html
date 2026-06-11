@@ -118,6 +118,61 @@ body{
   font-size: 12px;
   color: #666;
 }
+
+.leave-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.date-badge {
+  width: 74px;
+  min-width: 74px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 4px 14px rgba(0,0,0,.06);
+  text-align: center;
+}
+
+.date-badge-month {
+  background: #e85d5d;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 2px;
+}
+
+.date-badge-day {
+  font-size: 28px;
+  font-weight: 900;
+  padding: 10px 2px;
+  line-height: 1;
+}
+
+.leave-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.leave-title {
+  font-size: 18px;
+  font-weight: 900;
+  margin-bottom: 4px;
+}
+
+.leave-date-range {
+  color: #555;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.leave-meta {
+  font-size: 14px;
+  line-height: 1.7;
+}
   
 </style>
 </head>
@@ -272,64 +327,46 @@ function renderHistory(res) {
 }
 
 function renderLeaveCard(row) {
-
   const statusInfo = getLeaveStatusInfo(row.status);
+  const badge = getDateBadgeInfo(row.start_date, row.end_date);
 
   return `
     <div class="card">
+      <div class="leave-card">
 
-      <div style="
-        font-size:18px;
-        font-weight:800;
-        margin-bottom:8px;
-      ">
-        ${statusInfo.icon}
-        ${statusInfo.label}
-      </div>
-
-      <div style="
-        font-size:16px;
-        font-weight:700;
-        margin-bottom:8px;
-      ">
-        ${translateLeaveType(row.leave_type)}
-      </div>
-
-      <div class="sub">
-        ${formatDate(row.start_date)}
-        ${
-          row.start_date !== row.end_date
-          ? ' - ' + formatDate(row.end_date)
-          : ''
-        }
-      </div>
-
-      <div style="margin-top:10px;">
-        จำนวนวัน:
-        <b>${row.total_days}</b>
-      </div>
-
-      <div style="margin-top:10px;">
-        เหตุผล:
-        <br>
-        ${row.reason || '-'}
-      </div>
-
-      ${
-        row.note
-        ? `
-        <div style="
-          margin-top:10px;
-          color:#a33;
-        ">
-          หมายเหตุ:
-          <br>
-          ${row.note}
+        <div class="date-badge">
+          <div class="date-badge-month">${badge.month}</div>
+          <div class="date-badge-day">${badge.day}</div>
         </div>
-        `
-        : ''
-      }
 
+        <div class="leave-content">
+
+          <div class="leave-title">
+            ${translateLeaveType(row.leave_type)}
+          </div>
+
+          <div class="leave-date-range">
+            ${formatLeaveDateRange(row.start_date, row.end_date)}
+          </div>
+
+          <div class="leave-meta">
+            จำนวนวัน: <b>${row.total_days || 0}</b><br>
+            เหตุผล: ${row.reason || '-'}<br>
+            สถานะ: ${statusInfo.icon} ${statusInfo.label}
+          </div>
+
+          ${
+            row.note
+            ? `
+              <div style="margin-top:10px;color:#a33;font-size:14px;">
+                หมายเหตุ:<br>${row.note}
+              </div>
+            `
+            : ''
+          }
+
+        </div>
+      </div>
     </div>
   `;
 }
@@ -413,6 +450,99 @@ function getLeaveStatusInfo(status) {
     months[d.getMonth()] +
     ' ' +
     String(d.getFullYear() + 543).slice(-2);
+}
+
+function getThaiMonthFull(monthIndex) {
+  const months = [
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม'
+  ];
+
+  return months[monthIndex] || '';
+}
+
+function formatLeaveDateRange(startValue, endValue) {
+  if (!startValue) return '-';
+
+  const start = new Date(startValue);
+  const end = endValue ? new Date(endValue) : start;
+
+  if (isNaN(start.getTime())) return startValue;
+  if (isNaN(end.getTime())) return startValue;
+
+  const startDay = start.getDate();
+  const endDay = end.getDate();
+
+  const startMonth = getThaiMonthFull(start.getMonth());
+  const endMonth = getThaiMonthFull(end.getMonth());
+
+  const startYear = start.getFullYear() + 543;
+  const endYear = end.getFullYear() + 543;
+
+  if (
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    startDay === endDay
+  ) {
+    return startDay + ' ' + startMonth + ' ' + startYear;
+  }
+
+  if (
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth()
+  ) {
+    return startDay + '-' + endDay + ' ' + startMonth + ' ' + startYear;
+  }
+
+  return startDay + ' ' + startMonth + ' ' + startYear +
+    ' - ' +
+    endDay + ' ' + endMonth + ' ' + endYear;
+}
+
+function getDateBadgeInfo(startValue, endValue) {
+  if (!startValue) {
+    return {
+      day: '-',
+      month: ''
+    };
+  }
+
+  const start = new Date(startValue);
+  const end = endValue ? new Date(endValue) : start;
+
+  if (isNaN(start.getTime())) {
+    return {
+      day: '-',
+      month: ''
+    };
+  }
+
+  if (
+    !isNaN(end.getTime()) &&
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() !== end.getDate()
+  ) {
+    return {
+      day: start.getDate() + '-' + end.getDate(),
+      month: getThaiMonthFull(start.getMonth())
+    };
+  }
+
+  return {
+    day: start.getDate(),
+    month: getThaiMonthFull(start.getMonth())
+  };
 }
 
 main();
