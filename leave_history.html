@@ -182,67 +182,11 @@ async function main(){
       return;
     }
 
-    renderData(res);
+    renderHistory(res);
 
   }catch(err){
     showError(err.message || err);
   }
-}
-
-function renderData(res){
-
-  const emp = res.employee || {};
-  const rows = res.rows || [];
-
-  document.getElementById('employeeInfo').innerHTML =
-    (emp.nickname || '') +
-    ' · ' +
-    (emp.employee_code || '');
-
-  const app = document.getElementById('app');
-
-  if(!rows.length){
-
-    app.innerHTML =
-      '<div class="card empty">ยังไม่มีประวัติการลา</div>';
-
-    return;
-  }
-
-  app.innerHTML = rows.map(function(r){
-
-    return `
-      <div class="row">
-
-        <b>${translateLeaveType(r.leave_type)}</b><br>
-
-        วันที่:
-        ${formatDate(r.start_date)}
-        -
-        ${formatDate(r.end_date)}
-        <br>
-
-        จำนวน:
-        ${r.total_days || 0}
-        วัน
-        <br>
-
-        เหตุผล:
-        ${r.reason || '-'}
-        <br>
-
-        ผู้อนุมัติ:
-        ${r.approved_by || '-'}
-        <br>
-
-        <div class="pill ${r.status}">
-          ${translateStatus(r.status)}
-        </div>
-
-      </div>
-    `;
-
-  }).join('');
 }
 
 function translateLeaveType(type){
@@ -299,8 +243,8 @@ function renderHistory(res) {
   const summary = res.summary || {};
 
   document.getElementById('employeeInfo').innerHTML =
-    ${emp.nickname || ''} · ${emp.employee_code || ''}<br> +
-    `รอบ ${formatFullThaiDate(res.range_start)} - ${formatFullThaiDate(res.range_end)}`;
+  `${emp.nickname || ''} · ${emp.employee_code || ''}<br>` +
+  `รอบ ${formatFullThaiDate(res.range_start)} - ${formatFullThaiDate(res.range_end)}`;
 
   const app = document.getElementById('app');
 
