@@ -195,9 +195,16 @@
       const endDate = document.getElementById('endDate').value;
       const reason = document.getElementById('reason').value.trim();
 
-      if (!leaveType || !startDate || !endDate || !reason) {
+      if (!leaveType || !startDate || !endDate) {
         alert('กรุณากรอกข้อมูลให้ครบ');
-        window.isSubmitting = false;
+        return;
+      }
+
+      if (
+        (leaveType === 'SICK' || leaveType === 'OTHER') &&
+        !reason
+      ) {
+        alert('กรุณาระบุเหตุผล');
         return;
       }
 
