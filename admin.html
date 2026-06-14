@@ -617,7 +617,19 @@ function renderPayrollPeriodForm() {
       </div>
     </div>
 
+<button class="btn-save" onclick="exportPayrollCsv('${res.payroll_period}')">
+  Export CSV
+</button>
     <button class="btn-back" onclick="renderPayrollSummaryForm()">กลับ</button>
+            <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'APPROVED')">
+        อนุมัติ Payroll
+        </button>
+        <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'PAID')">
+        Mark as Paid
+        </button>
+        <button class="btn-back" onclick="updatePayrollStatus('${res.payroll_period}', 'LOCKED')">
+        Lock Payroll
+        </button>
     <br><br>
   `;
 
@@ -644,15 +656,7 @@ function renderPayrollPeriodForm() {
         <button class="btn-back" onclick="viewPayrollLines('${r.payroll_period}', '${r.employee_code}')">
         ดูรายละเอียด
         </button>
-        <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'APPROVED')">
-        อนุมัติ Payroll
-        </button>
-        <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'PAID')">
-        Mark as Paid
-        </button>
-        <button class="btn-back" onclick="updatePayrollStatus('${res.payroll_period}', 'LOCKED')">
-        Lock Payroll
-        </button>
+
       </div>
     `;
   });
@@ -742,6 +746,71 @@ function renderPayrollPeriodForm() {
 
   alert('อัปเดตสถานะเป็น ' + status + ' แล้ว');
   renderPayrollSummaryForm();
+}
+
+    async function exportPayrollCsv(payrollPeriod) {
+  const res = await callApi({
+    action: 'getPayrollExportData',
+    line_uid: lineUid,
+    payroll_period: payrollPeriod
+  });
+
+  if (!res.success) {
+    alert(res.message || 'Export ไม่สำเร็จ');
+    return;
+  }
+
+  const rows = res.rows || [];
+  if (!rows.length) {
+    alert('ไม่มีข้อมูลสำหรับ Export');
+    return;
+  }
+
+  const headers = [
+    'payroll_period',
+    'employee_code',
+    'full_name',
+    'nickname',
+    'branch_id',
+    'position',
+    'bank_name',
+    'bank_account_no',
+    'bank_account_name',
+    'base_salary',
+    'ot_amount',
+    'gross_amount',
+    'charge_deduct_amount',
+    'absence_deduct_amount',
+    'social_security_amount',
+    'deduct_amount',
+    'net_amount',
+    'status'
+  ];
+
+  const csv = [
+    headers.join(','),
+    ...rows.map(function(row) {
+      return headers.map(function(h) {
+        const value = row[h] == null ? '' : String(row[h]);
+        return '"' + value.replace(/"/g, '""') + '"';
+      }).join(',');
+    })
+  ].join('\n');
+
+  const blob = new Blob(['\uFEFF' + csv], {
+    type: 'text/csv;charset=utf-8;'
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  a.href = url;
+  a.download = 'payroll_' + payrollPeriod + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
 }
 
   main();
