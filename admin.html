@@ -644,6 +644,15 @@ function renderPayrollPeriodForm() {
         <button class="btn-back" onclick="viewPayrollLines('${r.payroll_period}', '${r.employee_code}')">
         ดูรายละเอียด
         </button>
+        <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'APPROVED')">
+        อนุมัติ Payroll
+        </button>
+        <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'PAID')">
+        Mark as Paid
+        </button>
+        <button class="btn-back" onclick="updatePayrollStatus('${res.payroll_period}', 'LOCKED')">
+        Lock Payroll
+        </button>
       </div>
     `;
   });
@@ -710,6 +719,29 @@ function renderPayrollPeriodForm() {
   `;
 
   document.getElementById('app').innerHTML = html;
+}
+
+    async function updatePayrollStatus(payrollPeriod, status) {
+  if (!confirm('ยืนยันเปลี่ยนสถานะงวด ' + payrollPeriod + ' เป็น ' + status + ' ?')) {
+    return;
+  }
+
+  const res = await callApi({
+    action: 'updatePayrollStatus',
+    data: {
+      line_uid: lineUid,
+      payroll_period: payrollPeriod,
+      status: status
+    }
+  });
+
+  if (!res.success) {
+    alert(res.message || 'อัปเดตสถานะไม่สำเร็จ');
+    return;
+  }
+
+  alert('อัปเดตสถานะเป็น ' + status + ' แล้ว');
+  renderPayrollSummaryForm();
 }
 
   main();
