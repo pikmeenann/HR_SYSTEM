@@ -641,9 +641,73 @@ function renderPayrollPeriodForm() {
         หักรวม: ${Number(r.deduct_amount || 0).toLocaleString()} บาท<br>
         <b>สุทธิ: ${Number(r.net_amount || 0).toLocaleString()} บาท</b><br>
         สถานะ: ${r.status || '-'}
+        <button class="btn-back" onclick="viewPayrollLines('${r.payroll_period}', '${r.employee_code}')">
+        ดูรายละเอียด
+        </button>
       </div>
     `;
   });
+
+  document.getElementById('app').innerHTML = html;
+}
+
+    async function viewPayrollLines(payrollPeriod, employeeCode) {
+  const res = await callApi({
+    action: 'getPayrollLines',
+    line_uid: lineUid,
+    payroll_period: payrollPeriod,
+    employee_code: employeeCode
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลดรายละเอียดไม่สำเร็จ');
+    return;
+  }
+
+  renderPayrollLinesResult(res);
+}
+
+    function renderPayrollLinesResult(res) {
+  const lines = res.lines || [];
+
+  let total = 0;
+
+  let html = `
+    <div class="head">
+      <div class="title">${res.employee_code}</div>
+      <div class="sub">รายละเอียด Payroll งวด ${res.payroll_period}</div>
+    </div>
+
+    <button class="btn-back" onclick="renderPayrollSummaryForm()">กลับ</button>
+    <br><br>
+  `;
+
+  if (!lines.length) {
+    html += `<div class="head">ยังไม่มีรายละเอียด</div>`;
+    document.getElementById('app').innerHTML = html;
+    return;
+  }
+
+  lines.forEach(function(line) {
+    total += Number(line.amount || 0);
+
+    const amountText = Number(line.amount || 0).toLocaleString();
+
+    html += `
+      <div class="head">
+        <b>${line.description || line.line_type}</b><br>
+        ประเภท: ${line.line_type || '-'}<br>
+        จำนวน: <b>${amountText} บาท</b><br>
+        ${line.note ? 'หมายเหตุ: ' + line.note + '<br>' : ''}
+      </div>
+    `;
+  });
+
+  html += `
+    <div class="head">
+      <b>รวมรายการ: ${Number(total || 0).toLocaleString()} บาท</b>
+    </div>
+  `;
 
   document.getElementById('app').innerHTML = html;
 }
