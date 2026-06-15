@@ -1361,27 +1361,6 @@ function renderEmployeeCenterResult(res) {
       Role: ${emp.role || '-'}
     </div>
 
-      let html = `
-    <div class="head">
-      <div class="title">${emp.employee_code || '-'}</div>
-      <div class="sub">
-        ${emp.full_name || ''} (${emp.nickname || '-'})<br>
-        ${emp.branch_id || '-'} | ${emp.position || '-'} | ${emp.status || '-'}
-      </div>
-    </div>
-
-    <button class="btn-back" onclick="renderEmployeeCenter()">ค้นหาใหม่</button>
-    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ Admin</button>
-    <br><br>
-
-    <div class="head">
-      <b>ข้อมูลทั่วไป</b><br>
-      เริ่มงาน: ${formatDate(emp.start_date)}<br>
-      ทดลองงานถึง: ${formatDate(emp.probation_end_date)}<br>
-      สถานะจ้างงาน: ${emp.employment_status || '-'}<br>
-      Role: ${emp.role || '-'}
-    </div>
-
     <div class="head">
       <b>KPI งวดนี้</b><br>
       งวด: ${kpi.payroll_period || '-'}<br>
@@ -1443,8 +1422,8 @@ function renderEmployeeCenterResult(res) {
     });
   }
 
-html += `</div>`;
-  
+  html += `</div>`;
+
   html += `
     <div class="head">
       <b>เอกสาร</b><br>
