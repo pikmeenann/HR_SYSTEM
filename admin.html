@@ -186,16 +186,46 @@ async function main() {
 
     
 async function callApi(payload) {
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(function() {
+    controller.abort();
+  }, 15000);
+
+  try {
     const res = await fetch(GAS_API_URL, {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
 
-    return await res.json();
+    clearTimeout(timeoutId);
+
+    const text = await res.text();
+
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      return {
+        success: false,
+        message: 'API ไม่ได้ส่ง JSON กลับมา: ' + text.slice(0, 200)
+      };
+    }
+
+  } catch (err) {
+    clearTimeout(timeoutId);
+
+    return {
+      success: false,
+      message: 'เชื่อมต่อ API ไม่สำเร็จ: ' + err.message
+    };
   }
+}
 
     
 async function loadUserAndRenderPortal() {
+  showLoading('กำลังตรวจสอบสิทธิ์...');
+
   const res = await callApi({
     action: 'getCurrentEmployee',
     line_uid: lineUid
@@ -207,15 +237,15 @@ async function loadUserAndRenderPortal() {
   }
 
   const user = res.employee || res.user || res;
-  const role = String(user.role || '').trim();
-
-  if (role === 'STAFF') {
-    window.location.href = 'https://liff.line.me/2010317944-48vTQqDt';
-    return;
-  }
-
   renderPortalByRole(user);
-  }
+}
+
+
+function showLoading(message) {
+  document.getElementById('app').innerHTML = `
+    <div class="loading">${message || 'กำลังโหลด...'}</div>
+  `;
+}
 
     
 function renderPortalByRole(user) {
