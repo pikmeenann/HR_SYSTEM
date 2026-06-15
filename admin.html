@@ -383,7 +383,7 @@ function renderPortalByRole(user) {
       <small>ตรวจสอบประวัติการแก้ไข</small>
     </button>
 
-    <button class="btn" onclick="alert('Coming Soon')">
+    <button class="btn" onclick="renderBackupCenter()">
       Backup Center
       <small>ตรวจสอบไฟล์สำรองข้อมูล</small>
     </button>
@@ -987,6 +987,49 @@ function formatDateTime(value) {
     hour: '2-digit',
     minute: '2-digit'
   });
+}
+
+    async function renderBackupCenter() {
+  const res = await callApi({
+    action: 'getBackupStatus'
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลดข้อมูล Backup ไม่สำเร็จ');
+    return;
+  }
+
+  const files = res.files || [];
+
+  let html = `
+    <div class="head">
+      <div class="title">Backup Center</div>
+      <div class="sub">ไฟล์สำรองข้อมูลล่าสุด 20 รายการ</div>
+    </div>
+
+    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    <br><br>
+  `;
+
+  if (!files.length) {
+    html += `<div class="head">ยังไม่มีไฟล์ Backup</div>`;
+    document.getElementById('app').innerHTML = html;
+    return;
+  }
+
+  files.forEach(function(file) {
+    html += `
+      <div class="head">
+        <b>${file.name}</b><br>
+        วันที่สร้าง: ${formatDateTime(file.created_at)}<br><br>
+        <button class="btn-save" onclick="window.open('${file.url}', '_blank')">
+          เปิดไฟล์ Backup
+        </button>
+      </div>
+    `;
+  });
+
+  document.getElementById('app').innerHTML = html;
 }
 
   main();
