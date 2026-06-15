@@ -145,25 +145,27 @@
   </div>
 
   <script>
-  let lineUid = '';
+    
+let lineUid = '';
 
   const LIFF_ID = '2010317944-82Rv6kVa';
 
   const GAS_API_URL =
     'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
 
-const URLS = {
-  hrDashboard: 'https://liff.line.me/2010317944-JT6WkNZ4',
-  dashboard: 'https://liff.line.me/2010317944-qrJlENj0',
-  employeeApprove: 'https://liff.line.me/2010317944-CjJMkJ3I',
-  employeeList: 'https://liff.line.me/2010317944-Nwoclupm',
-  employeeDetail: 'https://liff.line.me/2010317944-Iu21jArf',
-  scheduleAdmin: 'https://liff.line.me/2010317944-Gkh7the0',
-  leaveApprove: 'https://liff.line.me/2010317944-6koLiYjX',
-  profile: 'https://liff.line.me/2010317944-KmmsVa0F'
-};
+  const URLS = {
+    hrDashboard: 'https://liff.line.me/2010317944-JT6WkNZ4',
+    dashboard: 'https://liff.line.me/2010317944-qrJlENj0',
+    employeeApprove: 'https://liff.line.me/2010317944-CjJMkJ3I',
+    employeeList: 'https://liff.line.me/2010317944-Nwoclupm',
+    employeeDetail: 'https://liff.line.me/2010317944-Iu21jArf',
+    scheduleAdmin: 'https://liff.line.me/2010317944-Gkh7the0',
+    leaveApprove: 'https://liff.line.me/2010317944-6koLiYjX',
+    profile: 'https://liff.line.me/2010317944-KmmsVa0F'
+  };
 
-  async function main() {
+    
+async function main() {
     try {
       await liff.init({ liffId: LIFF_ID });
 
@@ -182,7 +184,8 @@ const URLS = {
     }
   }
 
-  async function callApi(payload) {
+    
+async function callApi(payload) {
     const res = await fetch(GAS_API_URL, {
       method: 'POST',
       body: JSON.stringify(payload)
@@ -191,7 +194,8 @@ const URLS = {
     return await res.json();
   }
 
-    async function loadUserAndRenderPortal() {
+    
+async function loadUserAndRenderPortal() {
   const res = await callApi({
     action: 'getCurrentEmployee',
     line_uid: lineUid
@@ -211,8 +215,9 @@ const URLS = {
   }
 
   renderPortalByRole(user);
-}
+  }
 
+    
 function renderPortalByRole(user) {
   const role = String(user.role || '').trim().toUpperCase();
   const name = user.nickname || user.first_name || user.employee_code || '';
@@ -233,9 +238,10 @@ function renderPortalByRole(user) {
   }
 
   showError('คุณไม่มีสิทธิ์ใช้งานหน้านี้');
-}
+  }
 
-    function renderManagerPortal(name) {
+    
+function renderManagerPortal(name) {
   document.getElementById('app').innerHTML = `
     <div class="head">
       <div class="title">Manager Center</div>
@@ -245,171 +251,193 @@ function renderPortalByRole(user) {
     <div class="section">
       <div class="section-title">งานวันนี้</div>
       <div class="grid">
+      
       <button class="btn" onclick="openPage('profile')">
-  โปรไฟล์ของฉัน
-  <small>ดูข้อมูลและสิทธิ์ลาของตัวเอง</small>
-</button>
-        <button class="btn" onclick="openPage('hrDashboard')">
-          ทีมงานวันนี้
-          <small>ดูคนเข้างาน / พัก / ออกงาน</small>
-        </button>
+      โปรไฟล์ของฉัน
+      <small>ดูข้อมูลและสิทธิ์ลาของตัวเอง</small>
+      </button>
+      
+      <button class="btn" onclick="openPage('hrDashboard')">
+      ทีมงานวันนี้
+      <small>ดูคนเข้างาน / พัก / ออกงาน</small>
+      </button>
 
-        <button class="btn" onclick="openPage('employeeList')">
-          รายชื่อพนักงาน
-          <small>ดูพนักงานในสาขา</small>
-        </button>
+      <button class="btn" onclick="openPage('employeeList')">
+      รายชื่อพนักงาน
+      <small>ดูพนักงานในสาขา</small>
+      </button>
+      
       </div>
     </div>
 
     <div class="section">
       <div class="section-title">งานที่ต้องจัดการ</div>
       <div class="grid">
-        <button class="btn" onclick="openPage('leaveApprove')">
-          อนุมัติใบลา
-          <small>ตรวจคำขอลาของทีม</small>
-        </button>
+      
+      <button class="btn" onclick="openPage('leaveApprove')">
+      อนุมัติใบลา
+      <small>ตรวจคำขอลาของทีม</small>
+      </button>
 
-        <button class="btn" onclick="openPage('employeeApprove')">
-          อนุมัติพนักงาน
-          <small>อนุมัติคนสมัครใหม่</small>
-        </button>
+      <button class="btn" onclick="openPage('employeeApprove')">
+      อนุมัติพนักงาน
+      <small>อนุมัติคนสมัครใหม่</small>
+      </button>
 
-        <button class="btn" onclick="openPage('scheduleAdmin')">
-          จัดตารางงาน
-          <small>สร้าง / แก้ไขตารางทีม</small>
-        </button>
+      <button class="btn" onclick="openPage('scheduleAdmin')">
+      จัดตารางงาน
+      <small>สร้าง / แก้ไขตารางทีม</small>
+      </button>
+      
       </div>
     </div>
   `;
 }
 
 
-  function renderAdminPortal(name) {
-    document.getElementById('app').innerHTML = `
-      <div class="head">
-        <div class="title">Admin Center</div>
-        <div class="sub">สวัสดี ${name || ''} | เมนูสำหรับเจ้าของ / HR</div>
+function renderAdminPortal(name) {
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">Admin Center</div>
+      <div class="sub">สวัสดี ${name || ''} | เมนูสำหรับเจ้าของ / HR</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">📊 ภาพรวม</div>
+      <div class="grid">
+      
+      <button class="btn" onclick="openPage('hrDashboard')">
+      ทีมงานวันนี้
+      <small>ภาพรวม HR รายวัน</small>
+      </button>
+
+      <button class="btn" onclick="openPage('dashboard')">
+      Dashboard รวม
+      <small>ภาพรวมระบบ</small>
+      </button>
+      
       </div>
+    </div>
 
-      <div class="section">
-        <div class="section-title">📊 ภาพรวม</div>
-        <div class="grid">
-          <button class="btn" onclick="openPage('hrDashboard')">
-            ทีมงานวันนี้
-            <small>ภาพรวม HR รายวัน</small>
-          </button>
+    <div class="section">
+      <div class="section-title">👥 พนักงาน</div>
+      <div class="grid">
+      
+      <button class="btn" onclick="openPage('employeeList')">
+      รายชื่อพนักงาน
+      <small>ดูข้อมูลพนักงานทั้งหมด</small>
+      </button>
 
-          <button class="btn" onclick="openPage('dashboard')">
-            Dashboard รวม
-            <small>ภาพรวมระบบ</small>
-          </button>
-        </div>
+      <button class="btn" onclick="openPage('employeeApprove')">
+      อนุมัติพนักงาน
+      <small>อนุมัติคนสมัครใหม่</small>
+      </button>
+
+      <button class="btn" onclick="renderEmployeeCenterSearch()">
+      Employee Center
+      <small>ข้อมูลพนักงานแบบรวม</small>
+      </button>
+
+      <button class="btn" onclick="renderDocumentCenter()">
+      เอกสารพนักงาน
+      <small>ดูไฟล์เอกสารที่อัปโหลดไว้</small>
+      </button>
+      
       </div>
+    </div>
 
-      <div class="section">
-        <div class="section-title">👥 พนักงาน</div>
-        <div class="grid">
-          <button class="btn" onclick="openPage('employeeList')">
-            รายชื่อพนักงาน
-            <small>ดูข้อมูลพนักงานทั้งหมด</small>
-          </button>
+    <div class="section">
+      <div class="section-title">📅 ตารางงาน / การลา</div>
+      <div class="grid">
+      
+      <button class="btn" onclick="openPage('scheduleAdmin')">
+      จัดตารางงาน
+      <small>เพิ่ม / แก้ไขตารางงาน</small>
+      </button>
 
-          <button class="btn" onclick="openPage('employeeApprove')">
-            อนุมัติพนักงาน
-            <small>อนุมัติคนสมัครใหม่</small>
-          </button>
+      <button class="btn" onclick="openPage('leaveApprove')">
+      อนุมัติใบลา
+      <small>ตรวจสอบคำขอลา</small>
+      </button>
 
-          <button class="btn" onclick="renderDocumentCenter()">
-  เอกสารพนักงาน
-  <small>ดูไฟล์เอกสารที่อัปโหลดไว้</small>
-</button>
-<button class="btn" onclick="openPage('profile')">
-  โปรไฟล์ของฉัน
-  <small>ดูข้อมูลของผู้ใช้งาน</small>
-</button>
-
-        </div>
+      <button class="btn" onclick="openPage('profile')">
+      โปรไฟล์ของฉัน
+      <small>ดูข้อมูลของผู้ใช้งาน</small>
+      </button>
+      
       </div>
+    </div>
 
-      <div class="section">
-        <div class="section-title">📅 ตารางงาน / การลา</div>
-        <div class="grid">
-          <button class="btn" onclick="openPage('scheduleAdmin')">
-            จัดตารางงาน
-            <small>เพิ่ม / แก้ไขตารางงาน</small>
-          </button>
+    <div class="section">
+      <div class="section-title">💰 ค่าใช้จ่ายพนักงาน</div>
+      <div class="grid">
+      
+      <button class="btn" onclick="renderEmployeeChargeForm()">
+      เพิ่มค่าใช้จ่าย
+      <small>ยูนิฟอร์ม / ตรวจสุขภาพ / เงินหัก</small>
+      </button>
 
-          <button class="btn" onclick="openPage('leaveApprove')">
-            อนุมัติใบลา
-            <small>ตรวจสอบคำขอลา</small>
-          </button>
-        </div>
+      <button class="btn" onclick="renderEmployeeChargeList()">
+      จัดการรายการ
+      <small>ดู / ปิดรายการค่าใช้จ่าย</small>
+      </button>
+      
       </div>
+    </div>
 
-      <div class="section">
-        <div class="section-title">💰 ค่าใช้จ่ายพนักงาน</div>
-        <div class="grid">
-          <button class="btn" onclick="renderEmployeeChargeForm()">
-            เพิ่มค่าใช้จ่าย
-            <small>ยูนิฟอร์ม / ตรวจสุขภาพ / เงินหัก</small>
-          </button>
+    <div class="section">
+      <div class="section-title">💵 Payroll</div>
+      <div class="grid">
+      
+      <button class="btn" onclick="renderPayrollPeriodForm()">
+      สร้างงวด Payroll
+      <small>สร้างรอบ 21-20</small>
+      </button>
 
-          <button class="btn" onclick="renderEmployeeChargeList()">
-            จัดการรายการ
-            <small>ดู / ปิดรายการค่าใช้จ่าย</small>
-          </button>
-        </div>
+      <button class="btn" onclick="renderPayrollBuildForm()">
+      คำนวณ Payroll
+      <small>คำนวณจาก Attendance Summary</small>
+      </button>
+
+      <button class="btn" onclick="renderPayrollSummaryForm()">
+      ดูผล Payroll
+      <small>ตรวจยอดรายงวด</small>
+      </button>
+
+      <button class="btn" onclick="renderPayrollSummaryForm()">
+      Export Payroll
+      <small>เลือกงวดแล้ว Export CSV</small>
+      </button>
+      
       </div>
-      <div class="section">
-  <div class="section-title">💵 Payroll</div>
-  <div class="grid">
-<button class="btn" onclick="renderPayrollPeriodForm()">
-  สร้างงวด Payroll
-  <small>สร้างรอบ 21-20</small>
-</button>
+    </div>
 
-<button class="btn" onclick="renderPayrollBuildForm()">
-  คำนวณ Payroll
-  <small>คำนวณจาก Attendance Summary</small>
-</button>
-
-<button class="btn" onclick="renderPayrollSummaryForm()">
-  ดูผล Payroll
-  <small>ตรวจยอดรายงวด</small>
-</button>
-<button class="btn" onclick="renderPayrollSummaryForm()">
-  Export Payroll
-  <small>เลือกงวดแล้ว Export CSV</small>
-</button>
-  Export Payroll
-  <small>ส่งออกข้อมูลเงินเดือน</small>
-</button>
-  </div>
-</div>
-
-<div class="section">
-  <div class="section-title">⚙️ ระบบ</div>
-  <div class="grid">
-    <button class="btn" onclick="renderAuditLogViewer()">
+    <div class="section">
+      <div class="section-title">⚙️ ระบบ</div>
+      <div class="grid">
+      
+      <button class="btn" onclick="renderAuditLogViewer()">
       Audit Log
       <small>ตรวจสอบประวัติการแก้ไข</small>
-    </button>
+      </button>
 
-    <button class="btn" onclick="renderBackupCenter()">
+      <button class="btn" onclick="renderBackupCenter()">
       Backup Center
       <small>ตรวจสอบไฟล์สำรองข้อมูล</small>
-    </button>
-  </div>
-</div>
+      </button>
+      
+      </div>
+    </div>
+  `;
+}
 
-    `;
-  }
 
-  function openPage(key) {
+function openPage(key) {
     window.location.href = URLS[key];
   }
 
-  async function renderEmployeeChargeForm() {
+    
+async function renderEmployeeChargeForm() {
   const res = await callApi({
     action: 'getChargeAdminData',
     line_uid: lineUid
@@ -468,7 +496,8 @@ function renderPortalByRole(user) {
   `;
 }
 
-  async function submitEmployeeCharge() {
+    
+async function submitEmployeeCharge() {
     const data = {
       line_uid: lineUid,
       employee_code: document.getElementById('chargeEmployeeCode').value.trim(),
@@ -499,7 +528,8 @@ function renderPortalByRole(user) {
     await loadUserAndRenderPortal();
   }
 
-  async function renderEmployeeChargeList() {
+    
+async function renderEmployeeChargeList() {
   const res = await callApi({
     action: 'getEmployeeChargesAdminData',
     line_uid: lineUid
@@ -558,6 +588,7 @@ function renderPortalByRole(user) {
   document.getElementById('app').innerHTML = html;
 }
 
+    
 function renderPayrollPeriodForm() {
   document.getElementById('app').innerHTML = `
     <div class="head">
@@ -575,7 +606,8 @@ function renderPayrollPeriodForm() {
   `;
 }
 
-  async function submitPayrollPeriod() {
+    
+async function submitPayrollPeriod() {
   const payrollPeriod = document.getElementById('payrollPeriod').value.trim();
 
   if (!payrollPeriod) {
@@ -604,9 +636,8 @@ function renderPayrollPeriodForm() {
   await loadUserAndRenderPortal();
 }
 
-  
-    
-  async function closeCharge(chargeId) {
+   
+async function closeCharge(chargeId) {
   if (!confirm('ยืนยันปิดรายการนี้?')) return;
 
   const res = await callApi({
@@ -626,7 +657,8 @@ function renderPayrollPeriodForm() {
   renderEmployeeChargeList();
 }
 
-  function formatDate(value) {
+  
+function formatDate(value) {
   if (!value) return '-';
 
   const d = new Date(value);
@@ -639,13 +671,15 @@ function renderPayrollPeriodForm() {
   });
 }
 
-  function showError(message) {
+    
+function showError(message) {
     document.getElementById('app').innerHTML = `
       <div class="error">${message}</div>
     `;
   }
 
-  function renderPayrollBuildForm() {
+    
+function renderPayrollBuildForm() {
   document.getElementById('app').innerHTML = `
     <div class="head">
       <div class="title">คำนวณ Payroll</div>
@@ -662,7 +696,8 @@ function renderPayrollPeriodForm() {
   `;
 }
 
-    async function submitBuildPayroll() {
+    
+async function submitBuildPayroll() {
   const payrollPeriod = document.getElementById('payrollPeriod').value.trim();
 
   if (!payrollPeriod) {
@@ -693,7 +728,8 @@ function renderPayrollPeriodForm() {
   await loadUserAndRenderPortal();
 }
 
-    function renderPayrollSummaryForm() {
+    
+function renderPayrollSummaryForm() {
   document.getElementById('app').innerHTML = `
     <div class="head">
       <div class="title">ดูผล Payroll</div>
@@ -710,7 +746,8 @@ function renderPayrollPeriodForm() {
   `;
 }
 
-    async function submitViewPayrollSummary() {
+    
+async function submitViewPayrollSummary() {
   const payrollPeriod = document.getElementById('payrollPeriod').value.trim();
 
   if (!payrollPeriod) {
@@ -732,7 +769,8 @@ function renderPayrollPeriodForm() {
   renderPayrollSummaryResult(res);
 }
 
-    function renderPayrollSummaryResult(res) {
+    
+function renderPayrollSummaryResult(res) {
   const rows = res.rows || [];
 
   let html = `
@@ -744,19 +782,19 @@ function renderPayrollPeriodForm() {
       </div>
     </div>
 
-<button class="btn-save" onclick="exportPayrollCsv('${res.payroll_period}')">
-  Export CSV
-</button>
+    <button class="btn-save" onclick="exportPayrollCsv('${res.payroll_period}')">
+      Export CSV
+    </button>
     <button class="btn-back" onclick="renderPayrollSummaryForm()">กลับ</button>
-            <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'APPROVED')">
-        อนุมัติ Payroll
-        </button>
-        <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'PAID')">
-        Mark as Paid
-        </button>
-        <button class="btn-back" onclick="updatePayrollStatus('${res.payroll_period}', 'LOCKED')">
-        Lock Payroll
-        </button>
+    <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'APPROVED')">
+      อนุมัติ Payroll
+    </button>
+    <button class="btn-save" onclick="updatePayrollStatus('${res.payroll_period}', 'PAID')">
+      Mark as Paid
+    </button>
+    <button class="btn-back" onclick="updatePayrollStatus('${res.payroll_period}', 'LOCKED')">
+      Lock Payroll
+    </button>
     <br><br>
   `;
 
@@ -791,7 +829,8 @@ function renderPayrollPeriodForm() {
   document.getElementById('app').innerHTML = html;
 }
 
-    async function viewPayrollLines(payrollPeriod, employeeCode) {
+
+async function viewPayrollLines(payrollPeriod, employeeCode) {
   const res = await callApi({
     action: 'getPayrollLines',
     line_uid: lineUid,
@@ -807,7 +846,8 @@ function renderPayrollPeriodForm() {
   renderPayrollLinesResult(res);
 }
 
-    function renderPayrollLinesResult(res) {
+    
+function renderPayrollLinesResult(res) {
   const lines = res.lines || [];
 
   let total = 0;
@@ -852,7 +892,8 @@ function renderPayrollPeriodForm() {
   document.getElementById('app').innerHTML = html;
 }
 
-    async function updatePayrollStatus(payrollPeriod, status) {
+    
+async function updatePayrollStatus(payrollPeriod, status) {
   if (!confirm('ยืนยันเปลี่ยนสถานะงวด ' + payrollPeriod + ' เป็น ' + status + ' ?')) {
     return;
   }
@@ -875,7 +916,8 @@ function renderPayrollPeriodForm() {
   renderPayrollSummaryForm();
 }
 
-    async function exportPayrollCsv(payrollPeriod) {
+  
+async function exportPayrollCsv(payrollPeriod) {
   const res = await callApi({
     action: 'getPayrollExportData',
     line_uid: lineUid,
@@ -940,7 +982,8 @@ function renderPayrollPeriodForm() {
   URL.revokeObjectURL(url);
 }
 
-    async function renderAuditLogViewer() {
+    
+async function renderAuditLogViewer() {
   const res = await callApi({
     action: 'getAuditLogs',
     limit: 100
@@ -1001,7 +1044,8 @@ function formatDateTime(value) {
   });
 }
 
-    async function renderBackupCenter() {
+    
+async function renderBackupCenter() {
   const res = await callApi({
     action: 'getBackupStatus'
   });
@@ -1044,7 +1088,8 @@ function formatDateTime(value) {
   document.getElementById('app').innerHTML = html;
 }
 
-    async function renderDocumentCenter() {
+    
+async function renderDocumentCenter() {
   const employeeCode = prompt('กรอกรหัสพนักงาน เช่น EMP001 หรือเว้นว่างเพื่อดูทั้งหมด');
 
   const res = await callApi({
@@ -1095,6 +1140,170 @@ function formatDateTime(value) {
       </div>
     `;
   });
+
+  document.getElementById('app').innerHTML = html;
+}
+
+
+function renderEmployeeCenterSearch() {
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">Employee Center</div>
+      <div class="sub">ค้นหาข้อมูลพนักงานแบบรวม</div>
+    </div>
+
+    <div class="section">
+      <label class="label">รหัสพนักงาน</label>
+      <input id="employeeCenterCode" class="input" placeholder="เช่น EMP001">
+
+      <button class="btn-save" onclick="loadEmployeeCenter()">
+        ค้นหา
+      </button>
+
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">
+        กลับ
+      </button>
+    </div>
+  `;
+}
+
+
+async function loadEmployeeCenter() {
+  const employeeCode = document.getElementById('employeeCenterCode').value.trim();
+
+  if (!employeeCode) {
+    alert('กรุณากรอกรหัสพนักงาน');
+    return;
+  }
+
+  const res = await callApi({
+    action: 'getEmployeeCenterData',
+    line_uid: lineUid,
+    employee_code: employeeCode
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+    return;
+  }
+
+  renderEmployeeCenterResult(res);
+}
+
+
+function renderEmployeeCenterResult(res) {
+  const emp = res.employee || {};
+  const contact = res.contact || {};
+  const payroll = res.payroll_profile || {};
+  const leave = res.leave_balance || {};
+  const docs = res.documents || [];
+  const schedules = res.next_schedules || [];
+  const attendance = res.recent_attendance || [];
+
+  let html = `
+    <div class="head">
+      <div class="title">${emp.employee_code || '-'}</div>
+      <div class="sub">
+        ${emp.full_name || ''} (${emp.nickname || '-'})<br>
+        ${emp.branch_id || '-'} | ${emp.position || '-'} | ${emp.status || '-'}
+      </div>
+    </div>
+
+    <button class="btn-back" onclick="renderEmployeeCenterSearch()">ค้นหาใหม่</button>
+    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ Admin</button>
+    <br><br>
+
+    <div class="head">
+      <b>ข้อมูลทั่วไป</b><br>
+      เริ่มงาน: ${formatDate(emp.start_date)}<br>
+      ทดลองงานถึง: ${formatDate(emp.probation_end_date)}<br>
+      สถานะจ้างงาน: ${emp.employment_status || '-'}<br>
+      Role: ${emp.role || '-'}
+    </div>
+
+    <div class="head">
+      <b>ข้อมูลติดต่อ</b><br>
+      เบอร์: ${contact.phone || '-'}<br>
+      ที่อยู่ปัจจุบัน: ${contact.current_address || '-'}<br>
+      ผู้ติดต่อฉุกเฉิน: ${contact.emergency_name || '-'} ${contact.emergency_phone || ''}
+    </div>
+
+    <div class="head">
+      <b>สิทธิ์ลา</b><br>
+      ปี: ${leave.year || '-'}<br>
+      ลาป่วยคงเหลือ: ${leave.sick_remaining || 0} วัน<br>
+      พักร้อนคงเหลือ: ${leave.vacation_remaining || 0} วัน<br>
+      HOT คงเหลือ: ${leave.hot_balance || 0}
+    </div>
+
+    <div class="head">
+      <b>Payroll Profile</b><br>
+      ประเภทเงินเดือน: ${payroll.salary_type || '-'}<br>
+      ฐานเงินเดือน: ${Number(payroll.base_salary || 0).toLocaleString()} บาท<br>
+      ค่าแรงรายวัน: ${Number(payroll.daily_wage || 0).toLocaleString()} บาท<br>
+      ธนาคาร: ${payroll.bank_name || '-'}<br>
+      เลขบัญชี: ${payroll.bank_account_no || '-'}
+    </div>
+  `;
+
+  html += `
+    <div class="head">
+      <b>เอกสาร</b><br>
+  `;
+
+  if (!docs.length) {
+    html += `ยังไม่มีเอกสาร<br>`;
+  } else {
+    docs.forEach(function(doc) {
+      html += `
+        ${doc.doc_type || '-'} | ${doc.doc_status || '-'}<br>
+        ${
+          doc.file_url
+            ? `<button class="btn-back" onclick="window.open('${doc.file_url}', '_blank')">เปิดเอกสาร</button>`
+            : ''
+        }
+        <br>
+      `;
+    });
+  }
+
+  html += `</div>`;
+
+  html += `
+    <div class="head">
+      <b>ตารางงานถัดไป</b><br>
+  `;
+
+  if (!schedules.length) {
+    html += `ไม่มีตารางงาน<br>`;
+  } else {
+    schedules.forEach(function(s) {
+      html += `
+        ${formatDate(s.date)} | ${s.shift_name || '-'} |
+        ${s.start_time || '-'} - ${s.end_time || '-'}<br>
+      `;
+    });
+  }
+
+  html += `</div>`;
+
+  html += `
+    <div class="head">
+      <b>เข้างานล่าสุด</b><br>
+  `;
+
+  if (!attendance.length) {
+    html += `ไม่มีประวัติ<br>`;
+  } else {
+    attendance.forEach(function(a) {
+      html += `
+        ${formatDate(a.date)} | ${a.attendance_status || '-'} |
+        สาย ${a.late_minutes || 0} นาที<br>
+      `;
+    });
+  }
+
+  html += `</div>`;
 
   document.getElementById('app').innerHTML = html;
 }
