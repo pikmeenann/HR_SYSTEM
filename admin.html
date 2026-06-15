@@ -295,12 +295,12 @@ function renderPortalByRole(user) {
         <div class="section-title">📊 ภาพรวม</div>
         <div class="grid">
           <button class="btn" onclick="openPage('hrDashboard')">
-            HR Dashboard
+            ทีมงานวันนี้
             <small>ภาพรวม HR รายวัน</small>
           </button>
 
           <button class="btn" onclick="openPage('dashboard')">
-            Dashboard
+            Dashboard รวม
             <small>ภาพรวมระบบ</small>
           </button>
         </div>
@@ -318,6 +318,15 @@ function renderPortalByRole(user) {
             อนุมัติพนักงาน
             <small>อนุมัติคนสมัครใหม่</small>
           </button>
+
+          <button class="btn" onclick="renderDocumentCenter()">
+  เอกสารพนักงาน
+  <small>ดูไฟล์เอกสารที่อัปโหลดไว้</small>
+</button>
+<button class="btn" onclick="openPage('profile')">
+  โปรไฟล์ของฉัน
+  <small>ดูข้อมูลของผู้ใช้งาน</small>
+</button>
 
         </div>
       </div>
@@ -368,7 +377,10 @@ function renderPortalByRole(user) {
   ดูผล Payroll
   <small>ตรวจยอดรายงวด</small>
 </button>
-<button class="btn" onclick="alert('Coming Soon')">
+<button class="btn" onclick="renderPayrollSummaryForm()">
+  Export Payroll
+  <small>เลือกงวดแล้ว Export CSV</small>
+</button>
   Export Payroll
   <small>ส่งออกข้อมูลเงินเดือน</small>
 </button>
@@ -1025,6 +1037,61 @@ function formatDateTime(value) {
         <button class="btn-save" onclick="window.open('${file.url}', '_blank')">
           เปิดไฟล์ Backup
         </button>
+      </div>
+    `;
+  });
+
+  document.getElementById('app').innerHTML = html;
+}
+
+    async function renderDocumentCenter() {
+  const employeeCode = prompt('กรอกรหัสพนักงาน เช่น EMP001 หรือเว้นว่างเพื่อดูทั้งหมด');
+
+  const res = await callApi({
+    action: 'getEmployeeDocumentsAdminData',
+    line_uid: lineUid,
+    employee_code: employeeCode || ''
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลดเอกสารไม่สำเร็จ');
+    return;
+  }
+
+  const docs = res.documents || [];
+
+  let html = `
+    <div class="head">
+      <div class="title">Document Center</div>
+      <div class="sub">เอกสารพนักงาน ${employeeCode ? employeeCode : 'ทั้งหมด'}</div>
+    </div>
+
+    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    <br><br>
+  `;
+
+  if (!docs.length) {
+    html += `<div class="head">ไม่พบเอกสาร</div>`;
+    document.getElementById('app').innerHTML = html;
+    return;
+  }
+
+  docs.forEach(function(doc) {
+    html += `
+      <div class="head">
+        <b>${doc.employee_code || '-'}</b><br>
+        ประเภท: ${doc.doc_type || '-'}<br>
+        สถานะ: ${doc.doc_status || '-'}<br>
+        ไฟล์: ${doc.file_name || '-'}<br>
+        วันที่อัปโหลด: ${formatDateTime(doc.uploaded_at)}<br>
+        ${doc.expire_date ? 'วันหมดอายุ: ' + formatDate(doc.expire_date) + '<br>' : ''}
+        ${doc.note ? 'หมายเหตุ: ' + doc.note + '<br>' : ''}
+
+        ${
+          doc.file_url
+            ? `<button class="btn-save" onclick="window.open('${doc.file_url}', '_blank')">เปิดเอกสาร</button>`
+            : ''
+        }
       </div>
     `;
   });
