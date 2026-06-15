@@ -333,7 +333,7 @@ function renderAdminPortal(name) {
       <small>อนุมัติคนสมัครใหม่</small>
       </button>
 
-      <button class="btn" onclick="renderEmployeeCenterSearch()">
+      <button class="btn" onclick="renderEmployeeCenter()">
       Employee Center
       <small>ข้อมูลพนักงานแบบรวม</small>
       </button>
@@ -408,6 +408,16 @@ function renderAdminPortal(name) {
       Export Payroll
       <small>เลือกงวดแล้ว Export CSV</small>
       </button>
+
+      <button class="btn" onclick="renderPayrollDashboardForm()">
+      Payroll Dashboard
+      <small>ภาพรวมเงินเดือนรายงวด</small>
+      </button>
+
+      <button class="btn" onclick="alert('Coming Soon')">
+      Payslip
+      <small>สร้างสลิปเงินเดือน</small>
+      </button>
       
       </div>
     </div>
@@ -424,6 +434,21 @@ function renderAdminPortal(name) {
       <button class="btn" onclick="renderBackupCenter()">
       Backup Center
       <small>ตรวจสอบไฟล์สำรองข้อมูล</small>
+      </button>
+
+      <button class="btn" onclick="renderSystemHealth()">
+      System Health
+      <small>ตรวจสอบความพร้อมระบบ</small>
+      </button>
+
+      <button class="btn" onclick="renderSettingsCenter()">
+      Settings
+      <small>ดูค่าตั้งค่าระบบ</small>
+      </button>
+
+      <button class="btn" onclick="renderExportCenter()">
+      Export Center
+      <small>ส่งออกรายงาน HR</small>
       </button>
       
       </div>
@@ -1145,47 +1170,129 @@ async function renderDocumentCenter() {
 }
 
 
-function renderEmployeeCenterSearch() {
-  document.getElementById('app').innerHTML = `
+async function renderEmployeeCenter() {
+
+  const html = `
     <div class="head">
       <div class="title">Employee Center</div>
-      <div class="sub">ค้นหาข้อมูลพนักงานแบบรวม</div>
+      <div class="sub">เลือกสาขา</div>
     </div>
 
-    <div class="section">
-      <label class="label">รหัสพนักงาน</label>
-      <input id="employeeCenterCode" class="input" placeholder="เช่น EMP001">
+    <select id="branchSelect" class="input">
+      <option value="">ทุกสาขา</option>
+    </select>
 
-      <button class="btn-save" onclick="loadEmployeeCenter()">
-        ค้นหา
-      </button>
+    <button class="btn-save"
+      onclick="loadEmployeeCenterList()">
+      โหลดข้อมูล
+    </button>
 
-      <button class="btn-back" onclick="loadUserAndRenderPortal()">
-        กลับ
-      </button>
-    </div>
+    <button class="btn-back"
+      onclick="loadUserAndRenderPortal()">
+      กลับ
+    </button>
+
+    <div id="employeeArea"></div>
   `;
+
+  document.getElementById('app').innerHTML = html;
+
+  await loadBranchDropdown();
 }
 
 
-async function loadEmployeeCenter() {
-  const employeeCode = document.getElementById('employeeCenterCode').value.trim();
+async function loadBranchDropdown() {
+  const select = document.getElementById('branchSelect');
 
-  if (!employeeCode) {
-    alert('กรุณากรอกรหัสพนักงาน');
-    return;
-  }
+  const branches = [
+    'HQ',
+    'P EV', 'P LP', 'P PK', 'P BN', 'P R9', 'P R3', 'P FI', 'P SC', 'P R2',
+    'C EV', 'C LP', 'C PK', 'C BN', 'C R9', 'C R3', 'C CL', 'C R2'
+  ];
+
+  branches.forEach(function(branchId) {
+    const option = document.createElement('option');
+    option.value = branchId;
+    option.textContent = branchId;
+    select.appendChild(option);
+  });
+}
+
+
+async function loadEmployeeCenterList() {
+
+  const branchId =
+    document.getElementById('branchSelect').value;
 
   const res = await callApi({
-    action: 'getEmployeeCenterData',
-    line_uid: lineUid,
-    employee_code: employeeCode
+    action:'getEmployeeCenterList',
+    line_uid:lineUid,
+    branch_id:branchId
   });
 
   if (!res.success) {
-    alert(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+    alert(res.message);
     return;
   }
+
+  const employees =
+    res.employees || [];
+
+  let html = '';
+
+  employees.forEach(function(emp){
+
+    html += `
+      <div class="head">
+
+        <b>
+          ${emp.employee_code}
+        </b><br>
+
+        ${emp.nickname || ''}
+
+        ${emp.first_name || ''}
+        ${emp.last_name || ''}
+
+        <br>
+
+        ${emp.branch_id || ''}
+
+        |
+        ${emp.position || ''}
+
+        |
+        ${emp.status || ''}
+
+        <br><br>
+
+        <button
+          class="btn-save"
+          onclick="
+            openEmployeeCenter(
+              '${emp.employee_code}'
+            )
+          ">
+          เปิดข้อมูล
+        </button>
+
+      </div>
+    `;
+  });
+
+  document.getElementById(
+    'employeeArea'
+  ).innerHTML = html;
+}
+
+
+async function openEmployeeCenter(employeeCode) {
+
+  const res = await callApi({
+    action:'getEmployeeCenterData',
+    line_uid:lineUid,
+    employee_code:employeeCode
+  });
 
   renderEmployeeCenterResult(res);
 }
@@ -1199,6 +1306,9 @@ function renderEmployeeCenterResult(res) {
   const docs = res.documents || [];
   const schedules = res.next_schedules || [];
   const attendance = res.recent_attendance || [];
+  const chargeSummary = res.charge_summary || {};
+  const charges = chargeSummary.charges || [];
+  const kpi = res.attendance_kpi || {};
 
   let html = `
     <div class="head">
@@ -1209,7 +1319,7 @@ function renderEmployeeCenterResult(res) {
       </div>
     </div>
 
-    <button class="btn-back" onclick="renderEmployeeCenterSearch()">ค้นหาใหม่</button>
+    <button class="btn-back" onclick="renderEmployeeCenter()">ค้นหาใหม่</button>
     <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ Admin</button>
     <br><br>
 
@@ -1220,6 +1330,17 @@ function renderEmployeeCenterResult(res) {
       สถานะจ้างงาน: ${emp.employment_status || '-'}<br>
       Role: ${emp.role || '-'}
     </div>
+
+    html += `
+      <div class="head">
+        <b>KPI งวดนี้</b><br>
+        งวด: ${kpi.payroll_period || '-'}<br>
+        วันทำงาน: ${kpi.work_days || 0} วัน<br>
+        มาสาย: ${kpi.late_count || 0} ครั้ง / ${kpi.late_minutes || 0} นาที<br>
+        OT: ${kpi.ot_hours || 0} ชั่วโมง<br>
+        ขาดงาน: ${kpi.absent_days || 0} วัน
+      </div>
+    `;
 
     <div class="head">
       <b>ข้อมูลติดต่อ</b><br>
@@ -1246,6 +1367,35 @@ function renderEmployeeCenterResult(res) {
     </div>
   `;
 
+  html += `
+    <div class="head">
+      <b>ค่าใช้จ่ายพนักงาน</b><br>
+      รวมค้างอยู่: ${Number(chargeSummary.total_active_amount || 0).toLocaleString()} บาท<br><br>
+  `;
+
+  if (!charges.length) {
+    html += `ไม่มีรายการค่าใช้จ่าย<br>`;
+  } else {
+    charges.slice(0, 5).forEach(function(c) {
+      const active = String(c.active || '').trim() === 'TRUE';
+      const deducted = String(c.is_deducted || '').trim() === 'TRUE';
+
+      let statusText = 'ปิดแล้ว';
+      if (active && !deducted) statusText = 'ยังมีผล';
+      if (deducted) statusText = 'หักแล้ว';
+
+      html += `
+        ${c.charge_name || c.charge_type || '-'}<br>
+        จำนวน: ${Number(c.amount || 0).toLocaleString()} บาท |
+        สถานะ: ${statusText}<br>
+        ${c.expiry_date ? 'ครบกำหนด: ' + formatDate(c.expiry_date) + '<br>' : ''}
+        <br>
+      `;
+    });
+  }
+
+html += `</div>`;
+  
   html += `
     <div class="head">
       <b>เอกสาร</b><br>
@@ -1308,6 +1458,256 @@ function renderEmployeeCenterResult(res) {
   document.getElementById('app').innerHTML = html;
 }
 
+
+async function renderSystemHealth() {
+  const res = await callApi({
+    action: 'getSystemHealth'
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลด System Health ไม่สำเร็จ');
+    return;
+  }
+
+  let html = `
+    <div class="head">
+      <div class="title">System Health</div>
+      <div class="sub">ตรวจล่าสุด: ${formatDateTime(res.checked_at)}</div>
+    </div>
+
+    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    <br><br>
+
+    <div class="head">
+      <b>ระบบหลัก</b><br>
+      Audit Log: ${res.audit_enabled || '-'}<br>
+      Auto Backup: ${res.auto_backup_enabled || '-'}<br>
+      เก็บ Backup: ${res.backup_keep_days || '-'} วัน
+    </div>
+
+    <div class="head">
+      <b>ชีตสำคัญ</b><br>
+  `;
+
+  (res.sheet_status || []).forEach(function(s) {
+    html += `
+      ${s.ok ? '✅' : '❌'} ${s.name}
+      ${s.ok ? '(' + s.rows + ' rows)' : ''}<br>
+    `;
+  });
+
+  html += `
+    </div>
+
+    <div class="head">
+      <b>โฟลเดอร์สำคัญ</b><br>
+  `;
+
+  (res.folder_status || []).forEach(function(f) {
+    html += `
+      ${f.ok ? '✅' : '❌'} ${f.label}<br>
+      ${f.ok ? f.name : f.message}<br><br>
+    `;
+  });
+
+  html += `</div>`;
+
+  document.getElementById('app').innerHTML = html;
+}
+
+
+async function renderSettingsCenter() {
+  const res = await callApi({
+    action: 'getHrSettings'
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลด Settings ไม่สำเร็จ');
+    return;
+  }
+
+  const settings = res.settings || [];
+
+  let html = `
+    <div class="head">
+      <div class="title">Settings Center</div>
+      <div class="sub">ค่าตั้งค่าระบบ HR</div>
+    </div>
+
+    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    <br><br>
+  `;
+
+  settings.forEach(function(s) {
+    html += `
+      <div class="head">
+        <b>${s.key || '-'}</b><br>
+        ค่า: ${s.value || '-'}<br>
+        ${s.note ? 'หมายเหตุ: ' + s.note : ''}
+      </div>
+    `;
+  });
+
+  document.getElementById('app').innerHTML = html;
+}
+
+
+function renderExportCenter() {
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">Export Center</div>
+      <div class="sub">ส่งออกรายงาน HR เป็น CSV</div>
+    </div>
+
+    <div class="section">
+      <label class="label">ประเภทรายงาน</label>
+      <select id="exportReportType" class="input">
+        <option value="ATTENDANCE">Attendance</option>
+        <option value="LEAVE">Leave</option>
+        <option value="PAYROLL">Payroll</option>
+        <option value="EMPLOYEE">Employee</option>
+      </select>
+
+      <label class="label">วันที่เริ่มต้น</label>
+      <input id="exportStartDate" class="input" type="date">
+
+      <label class="label">วันที่สิ้นสุด</label>
+      <input id="exportEndDate" class="input" type="date">
+
+      <button class="btn-save" onclick="submitExportReport()">
+        Export Report
+      </button>
+
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">
+        กลับ
+      </button>
+    </div>
+  `;
+}
+
+
+async function submitExportReport() {
+  const reportType = document.getElementById('exportReportType').value;
+  const startDate = document.getElementById('exportStartDate').value;
+  const endDate = document.getElementById('exportEndDate').value;
+
+  if ((reportType === 'ATTENDANCE' || reportType === 'LEAVE') && (!startDate || !endDate)) {
+    alert('กรุณาเลือกวันที่เริ่มต้นและสิ้นสุด');
+    return;
+  }
+
+  const res = await callApi({
+    action: 'exportHrReport',
+    data: {
+      report_type: reportType,
+      start_date: startDate,
+      end_date: endDate,
+      user_code: 'ADMIN',
+      user_name: 'ADMIN'
+    }
+  });
+
+  if (!res.success) {
+    alert(res.message || 'Export ไม่สำเร็จ');
+    return;
+  }
+
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">Export สำเร็จ</div>
+      <div class="sub">${res.file_name || ''}</div>
+    </div>
+
+    <button class="btn-save" onclick="window.open('${res.url}', '_blank')">
+      เปิดไฟล์
+    </button>
+
+    <button class="btn-back" onclick="renderExportCenter()">
+      Export อีกครั้ง
+    </button>
+
+    <button class="btn-back" onclick="loadUserAndRenderPortal()">
+      กลับ
+    </button>
+  `;
+}
+
+
+function renderPayrollDashboardForm() {
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">Payroll Dashboard</div>
+      <div class="sub">ดูภาพรวมเงินเดือนรายงวด</div>
+    </div>
+
+    <div class="section">
+      <label class="label">Payroll Period</label>
+      <input id="payrollDashboardPeriod" class="input" placeholder="เช่น 2026-06">
+
+      <button class="btn-save" onclick="submitPayrollDashboard()">
+        ดูภาพรวม
+      </button>
+
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">
+        กลับ
+      </button>
+    </div>
+  `;
+}
+
+
+async function submitPayrollDashboard() {
+  const payrollPeriod = document.getElementById('payrollDashboardPeriod').value.trim();
+
+  if (!payrollPeriod) {
+    alert('กรุณากรอก payroll_period เช่น 2026-06');
+    return;
+  }
+
+  const res = await callApi({
+    action: 'getPayrollDashboardSummary',
+    line_uid: lineUid,
+    payroll_period: payrollPeriod
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลด Payroll Dashboard ไม่สำเร็จ');
+    return;
+  }
+
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">Payroll ${res.payroll_period}</div>
+      <div class="sub">สถานะ: ${res.status || '-'}</div>
+    </div>
+
+    <div class="head">
+      <b>จำนวนพนักงาน</b><br>
+      ${res.employee_count || 0} คน
+    </div>
+
+    <div class="head">
+      <b>ยอดเงินเดือนรวม</b><br>
+      Gross: ${Number(res.gross_amount || 0).toLocaleString()} บาท<br>
+      OT: ${Number(res.ot_amount || 0).toLocaleString()} บาท<br>
+      หักรวม: ${Number(res.deduct_amount || 0).toLocaleString()} บาท<br>
+      <b>สุทธิ: ${Number(res.net_amount || 0).toLocaleString()} บาท</b>
+    </div>
+
+    <button class="btn-save" onclick="renderPayrollSummaryForm()">
+      ดูรายละเอียด Payroll
+    </button>
+
+    <button class="btn-back" onclick="renderPayrollDashboardForm()">
+      เลือกงวดใหม่
+    </button>
+
+    <button class="btn-back" onclick="loadUserAndRenderPortal()">
+      กลับ
+    </button>
+  `;
+}
+    
   main();
 </script>
   
