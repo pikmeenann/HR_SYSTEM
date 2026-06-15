@@ -375,6 +375,21 @@ function renderPortalByRole(user) {
   </div>
 </div>
 
+<div class="section">
+  <div class="section-title">⚙️ ระบบ</div>
+  <div class="grid">
+    <button class="btn" onclick="renderAuditLogViewer()">
+      Audit Log
+      <small>ตรวจสอบประวัติการแก้ไข</small>
+    </button>
+
+    <button class="btn" onclick="alert('Coming Soon')">
+      Backup Center
+      <small>ตรวจสอบไฟล์สำรองข้อมูล</small>
+    </button>
+  </div>
+</div>
+
     `;
   }
 
@@ -911,6 +926,67 @@ function renderPayrollPeriodForm() {
   document.body.removeChild(a);
 
   URL.revokeObjectURL(url);
+}
+
+    async function renderAuditLogViewer() {
+  const res = await callApi({
+    action: 'getAuditLogs',
+    limit: 100
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลด Audit Log ไม่สำเร็จ');
+    return;
+  }
+
+  const logs = res.logs || [];
+
+  let html = `
+    <div class="head">
+      <div class="title">Audit Log</div>
+      <div class="sub">100 รายการล่าสุด</div>
+    </div>
+
+    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    <br><br>
+  `;
+
+  if (!logs.length) {
+    html += `<div class="head">ยังไม่มีประวัติการแก้ไข</div>`;
+    document.getElementById('app').innerHTML = html;
+    return;
+  }
+
+  logs.forEach(function(log) {
+    html += `
+      <div class="head">
+        <b>${log.action || '-'}</b><br>
+        เวลา: ${formatDateTime(log.created_at || log.datetime)}<br>
+        ผู้ใช้: ${log.user_name || log.user_code || '-'}<br>
+        ตาราง: ${log.table_name || '-'}<br>
+        รายการ: ${log.record_id || '-'}<br>
+        ${log.note ? 'หมายเหตุ: ' + log.note + '<br>' : ''}
+      </div>
+    `;
+  });
+
+  document.getElementById('app').innerHTML = html;
+}
+
+
+function formatDateTime(value) {
+  if (!value) return '-';
+
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+
+  return d.toLocaleString('th-TH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
   main();
