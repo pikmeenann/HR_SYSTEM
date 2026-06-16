@@ -754,23 +754,28 @@ async function submitBuildPayroll() {
   }
 
   const res = await callApi({
-    action: 'buildPayrollSummary',
-    payroll_period: payrollPeriod
-  });
+  action: 'buildPayrollSummary',
+  payroll_period: payrollPeriod
+});
 
-  if (!res.success) {
-    alert(res.message || 'คำนวณ Payroll ไม่สำเร็จ');
-    return;
-  }
-
+if (!res.success) {
   alert(
-    'คำนวณ Payroll เรียบร้อยแล้ว\n' +
-    'งวด: ' + res.payroll_period + '\n' +
-    'จำนวนพนักงาน: ' + res.count
+    'ระบบอาจคำนวณสำเร็จแล้ว แต่หน้าเว็บรอคำตอบไม่ทัน\n' +
+    'กรุณาไปกด "ดูผล Payroll" เพื่อตรวจสอบงวด ' +
+    payrollPeriod
   );
 
-  await loadUserAndRenderPortal();
+  renderPayrollSummaryForm();
+  return;
 }
+
+alert(
+  'คำนวณ Payroll เรียบร้อยแล้ว\n' +
+  'งวด: ' + res.payroll_period + '\n' +
+  'จำนวนพนักงาน: ' + res.count
+);
+
+await loadUserAndRenderPortal();
 
     
 function renderPayrollSummaryForm() {
