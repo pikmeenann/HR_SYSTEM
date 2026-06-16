@@ -190,7 +190,7 @@ async function callApi(payload) {
 
   const timeoutId = setTimeout(function() {
     controller.abort();
-  }, 15000);
+  }, 120000);
 
   try {
     const res = await fetch(GAS_API_URL, {
