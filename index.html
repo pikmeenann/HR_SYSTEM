@@ -417,6 +417,20 @@ async function submitAction(action) {
       return map[action] || action || '-';
     }
 
+    function translateStatus(status) {
+  const map = {
+    NOT_CHECKED_IN: 'ยังไม่เข้างาน',
+    WORKING: 'กำลังทำงาน',
+    ON_BREAK: 'พักอยู่',
+    CHECKED_OUT: 'ออกงานแล้ว',
+    MISSING_CHECKOUT: 'ลืมออกงาน',
+    LEAVE: 'ลา',
+    OFF: 'วันหยุด'
+  };
+
+  return map[status] || status || '-';
+}
+
     function formatTime(value) {
       if (!value) return '-';
 
