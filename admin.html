@@ -603,11 +603,6 @@ function renderAdminPortal(name) {
       <small>ตรวจสอบความพร้อมระบบ</small>
       </button>
 
-      <button class="btn" onclick="renderSettingsCenter()">
-      Settings
-      <small>ดูค่าตั้งค่าระบบ</small>
-      </button>
-
       <button class="btn" onclick="renderExportCenter()">
       Export Center
       <small>ส่งออกรายงาน HR</small>
@@ -1398,41 +1393,6 @@ async function renderSystemHealth() {
   document.getElementById('app').innerHTML = html;
 }
 
-
-async function renderSettingsCenter() {
-  const res = await callApi({
-    action: 'getHrSettings'
-  });
-
-  if (!res.success) {
-    alert(res.message || 'โหลด Settings ไม่สำเร็จ');
-    return;
-  }
-
-  const settings = res.settings || [];
-
-  let html = `
-    <div class="head">
-      <div class="title">Settings Center</div>
-      <div class="sub">ค่าตั้งค่าระบบ HR</div>
-    </div>
-
-    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
-    <br><br>
-  `;
-
-  settings.forEach(function(s) {
-    html += `
-      <div class="head">
-        <b>${s.key || '-'}</b><br>
-        ค่า: ${s.value || '-'}<br>
-        ${s.note ? 'หมายเหตุ: ' + s.note : ''}
-      </div>
-    `;
-  });
-
-  document.getElementById('app').innerHTML = html;
-}
 
 
 function renderExportCenter() {
