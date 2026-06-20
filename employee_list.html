@@ -97,6 +97,31 @@
       background: #fff0f0;
       border-radius: 16px;
     }
+
+    .branch-title {
+  font-size: 17px;
+  font-weight: 900;
+  margin: 18px 4px 10px;
+  color: #2f2f2f;
+}
+
+.branch-count {
+  color: #777;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.open-btn {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 11px;
+  margin-top: 12px;
+  background: #7fb069;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+}
   </style>
 </head>
 
@@ -127,6 +152,52 @@
 
     let lineUid = '';
     let employees = [];
+
+    const HR_BRANCH_ORDER = [
+  'HQ',
+  'P CL',
+  'P LP',
+  'P PK',
+  'P BN',
+  'P R9',
+  'P R3',
+  'P EV',
+  'P FI',
+  'P SC',
+  'P R2',
+  'C LP',
+  'C PK',
+  'C EV',
+  'C R9',
+  'C R2',
+  'C BN',
+  'C CL',
+  'C R3',
+];
+
+const HR_BRANCH_NAME_MAP = {
+  'HQ': 'สำนักงานใหญ่',
+
+  'P CL': 'พิคมี ชิดลม',
+  'P LP': 'พิคมี ลาดพร้าว',
+  'P PK': 'พิคมี ปิ่นเกล้า',
+  'P BN': 'พิคมี บางนา',
+  'P R9': 'พิคมี พระราม 9',
+  'P R3': 'พิคมี พระราม 3',
+  'P EV': 'พิคมี อีสต์วิลล์',
+  'P FI': 'พิคมี แฟชั่น',
+  'P SC': 'พิคมี สีลม',
+  'P R2': 'พิคมี พระราม 2',
+
+  'C LP': 'คาโด้ ลาดพร้าว',
+  'C PK': 'คาโด้ ปิ่นเกล้า',
+  'C EV': 'คาโด้ อีสต์วิลล์',
+  'C R9': 'คาโด้ พระราม 9',
+  'C R2': 'คาโด้ พระราม 2',
+  'C BN': 'คาโด้ บางนา',
+  'C CL': 'คาโด้ ชิดลม',
+  'C R3': 'คาโด้ พระราม 3',
+};
 
     async function callApi(payload) {
       const res = await fetch(GAS_API_URL, {
@@ -195,39 +266,86 @@
       renderEmployees(filtered);
     }
 
-    function renderEmployees(list) {
-      const app = document.getElementById('app');
+ function renderEmployees(list) {
+  const app = document.getElementById('app');
 
-      if (!list.length) {
-        app.innerHTML = '<div class="card empty">ไม่พบข้อมูลพนักงาน</div>';
-        return;
-      }
+  if (!list.length) {
+    app.innerHTML = '<div class="card empty">ไม่พบข้อมูลพนักงาน</div>';
+    return;
+  }
 
-      app.innerHTML = list.map(function(emp) {
-        return `
-          <div
-      class="row"
-      onclick="openEmployee('${emp.employee_code}')"
-    >
-            <div class="name">
-              ${emp.nickname || '-'}
-              <span style="font-size:13px;color:#888;">${emp.employee_code || ''}</span>
-            </div>
+  const branchMap = {};
 
-            <div class="meta">
-              ${emp.full_name || ''}<br>
-              สาขา: ${emp.branch_id || '-'}<br>
-              ตำแหน่ง: ${emp.position || '-'}<br>
-              เริ่มงาน: ${formatDate(emp.start_date)}
-            </div>
+  list.forEach(function(emp) {
+    const branchId = String(emp.branch_id || emp.home_branch_id || '').trim() || 'ไม่ระบุสาขา';
 
-            <div class="pill">
-              ${emp.role || '-'} · ${emp.employment_status || '-'}
-            </div>
-          </div>
-        `;
-      }).join('');
+    if (!branchMap[branchId]) {
+      branchMap[branchId] = [];
     }
+
+    branchMap[branchId].push(emp);
+  });
+
+  const orderedBranches = HR_BRANCH_ORDER.filter(function(branchId) {
+    return branchMap[branchId] && branchMap[branchId].length;
+  });
+
+  Object.keys(branchMap).forEach(function(branchId) {
+    if (orderedBranches.indexOf(branchId) === -1) {
+      orderedBranches.push(branchId);
+    }
+  });
+
+  let html = '';
+
+  orderedBranches.forEach(function(branchId) {
+    const branchEmployees = branchMap[branchId] || [];
+
+    branchEmployees.sort(function(a, b) {
+      const nameA = String(a.nickname || a.full_name || a.employee_code || '');
+      const nameB = String(b.nickname || b.full_name || b.employee_code || '');
+      return nameA.localeCompare(nameB, 'th');
+    });
+
+    html += `
+      <div class="branch-title">
+        ${HR_BRANCH_NAME_MAP[branchId] || branchId}
+        <span class="branch-count">(${branchEmployees.length} คน)</span>
+      </div>
+    `;
+
+    branchEmployees.forEach(function(emp) {
+      html += `
+        <div class="row">
+          <div class="name">
+            ${emp.nickname || '-'}
+            <span style="font-size:13px;color:#888;">${emp.employee_code || ''}</span>
+          </div>
+
+          <div class="meta">
+            ${emp.full_name || ''}<br>
+            สาขา: ${HR_BRANCH_NAME_MAP[emp.branch_id] || emp.branch_id || '-'}<br>
+            ตำแหน่ง: ${emp.position || '-'}<br>
+            เริ่มงาน: ${formatDate(emp.start_date)}
+          </div>
+
+          <div class="pill">
+            ${emp.role || '-'} · ${emp.employment_status || '-'}
+          </div>
+
+          <button
+            class="open-btn"
+            onclick="openEmployee('${emp.employee_code}')"
+          >
+            เปิดข้อมูล
+          </button>
+        </div>
+      `;
+    });
+  });
+
+  app.innerHTML = html;
+}
 
     function formatDate(value) {
       if (!value) return '-';
@@ -246,12 +364,7 @@
       document.getElementById('app').innerHTML =
         '<div class="card error">' + message + '</div>';
     }
-
-    function openEmployee(employeeCode) {
-  location.href =
-    'employee_detail.html?employee_code=' +
-    encodeURIComponent(employeeCode);
-}
+    
 
 function openEmployee(employeeCode) {
   window.location.href =
