@@ -405,24 +405,12 @@ async function submitAction(action) {
       });
     }
 
-    function translateStatus(status) {
-      const map = {
-        NOT_CHECKED_IN: 'ยังไม่เข้างาน',
-        WORKING: 'กำลังทำงาน',
-        ON_BREAK: 'กำลังพัก',
-        CHECKED_OUT: 'ออกงานแล้ว',
-        MISSING_CHECKOUT: 'ยังไม่ได้เช็คเอาท์'
-      };
-
-      return map[status] || status || '-';
-    }
-
     function translateAction(action) {
       const map = {
-        CHECK_IN: 'เช็คอินเข้างาน',
-        BREAK_OUT: 'ไปพัก',
-        BREAK_IN: 'กลับเข้าทำงาน',
-        CHECK_OUT: 'เช็คเอาท์ออกงาน'
+        CHECK_IN: 'เข้างาน',
+        BREAK_OUT: 'พัก',
+        BREAK_IN: 'กลับจากพัก',
+        CHECK_OUT: 'ออกงาน'
       };
 
       return map[action] || action || '-';
