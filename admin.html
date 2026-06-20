@@ -1833,12 +1833,12 @@ async function submitPayrollDashboard() {
 }
 
 
-    function renderTodayTeamOverviewPage() {
+async function renderTodayTeamOverviewPage() {
   const app = document.getElementById('app') || document.body;
 
   app.innerHTML = `
     <div class="topbar">
-      <button class="back-btn" onclick="renderAdminHome()">← กลับ</button>
+      <button class="back-btn" onclick="loadUserAndRenderPortal()">← กลับ</button>
       <h1>ทีมงานวันนี้</h1>
     </div>
 
@@ -1847,13 +1847,20 @@ async function submitPayrollDashboard() {
     </div>
   `;
 
-  google.script.run
-    .withSuccessHandler(renderTodayTeamOverview)
-    .withFailureHandler(function(err) {
-      document.getElementById('todayTeamArea').innerHTML =
-        '<div class="error">โหลดข้อมูลไม่สำเร็จ: ' + err.message + '</div>';
-    })
-    .getTodayTeamOverview();
+  const res = await callApi({
+    action: 'getTodayTeamOverview',
+    line_uid: lineUid
+  });
+
+  if (!res.success) {
+    document.getElementById('todayTeamArea').innerHTML =
+      '<div class="error">โหลดข้อมูลไม่สำเร็จ: ' +
+      (res.message || 'ไม่ทราบสาเหตุ') +
+      '</div>';
+    return;
+  }
+
+  renderTodayTeamOverview(res.data || res);
 }
 
 
