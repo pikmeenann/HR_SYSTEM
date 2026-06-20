@@ -266,6 +266,52 @@ let lineUid = '';
     profile: 'https://liff.line.me/2010317944-KmmsVa0F'
   };
 
+const HR_BRANCH_ORDER = [
+  'HQ',
+  'P CL',
+  'P LP',
+  'P PK',
+  'P BN',
+  'P R9',
+  'P R3',
+  'P EV',
+  'P FI',
+  'P SC',
+  'P R2',
+  'C LP',
+  'C PK',
+  'C EV',
+  'C R9',
+  'C R2',
+  'C BN',
+  'C CL',
+  'C R3'
+];
+
+const HR_BRANCH_NAME_MAP = {
+  'HQ': 'สำนักงานใหญ่',
+
+  'P CL': 'พิคมี ชิดลม',
+  'P LP': 'พิคมี ลาดพร้าว',
+  'P PK': 'พิคมี ปิ่นเกล้า',
+  'P BN': 'พิคมี บางนา',
+  'P R9': 'พิคมี พระราม 9',
+  'P R3': 'พิคมี พระราม 3',
+  'P EV': 'พิคมี อีสต์วิลล์',
+  'P FI': 'พิคมี แฟชั่น',
+  'P SC': 'พิคมี สีลม',
+  'P R2': 'พิคมี พระราม 2',
+
+  'C LP': 'คาโด้ ลาดพร้าว',
+  'C PK': 'คาโด้ ปิ่นเกล้า',
+  'C EV': 'คาโด้ อีสต์วิลล์',
+  'C R9': 'คาโด้ พระราม 9',
+  'C R2': 'คาโด้ พระราม 2',
+  'C BN': 'คาโด้ บางนา',
+  'C CL': 'คาโด้ ชิดลม',
+  'C R3': 'คาโด้ พระราม 3'
+};
+
     
 async function main() {
     try {
@@ -454,11 +500,6 @@ function renderAdminPortal(name) {
       <small>อนุมัติคนสมัครใหม่</small>
       </button>
 
-      <button class="btn" onclick="renderEmployeeCenter()">
-      Employee Center
-      <small>ข้อมูลพนักงานแบบรวม</small>
-      </button>
-
       <button class="btn" onclick="renderDocumentCenter()">
       เอกสารพนักงาน
       <small>ดูไฟล์เอกสารที่อัปโหลดไว้</small>
@@ -583,6 +624,8 @@ function openPage(key) {
   }
 
     
+let chargeEmployees = [];
+
 async function renderEmployeeChargeForm() {
   const res = await callApi({
     action: 'getChargeAdminData',
@@ -594,12 +637,9 @@ async function renderEmployeeChargeForm() {
     return;
   }
 
-  const employees = res.employees || [];
+  chargeEmployees = res.employees || [];
 
-  const employeeOptions = employees.map(function(e) {
-    const name = `${e.employee_code} - ${e.nickname || e.first_name || ''} ${e.last_name || ''}`;
-    return `<option value="${e.employee_code}">${name}</option>`;
-  }).join('');
+  const branchOptions = buildChargeBranchOptions(chargeEmployees);
 
   document.getElementById('app').innerHTML = `
     <div class="head">
@@ -608,10 +648,15 @@ async function renderEmployeeChargeForm() {
     </div>
 
     <div class="section">
+      <label class="label">เลือกสาขา</label>
+      <select id="chargeBranchId" class="input" onchange="renderChargeEmployeeOptions()">
+        <option value="">เลือกสาขา</option>
+        ${branchOptions}
+      </select>
+
       <label class="label">เลือกพนักงาน</label>
       <select id="chargeEmployeeCode" class="input">
-        <option value="">เลือกพนักงาน</option>
-        ${employeeOptions}
+        <option value="">เลือกสาขาก่อน</option>
       </select>
 
       <label class="label">ประเภทค่าใช้จ่าย</label>
@@ -1296,292 +1341,6 @@ async function renderDocumentCenter() {
 }
 
 
-async function renderEmployeeCenter() {
-
-  const html = `
-    <div class="head">
-      <div class="title">Employee Center</div>
-      <div class="sub">เลือกสาขา</div>
-    </div>
-
-    <select id="branchSelect" class="input">
-      <option value="">ทุกสาขา</option>
-    </select>
-
-    <button class="btn-save"
-      onclick="loadEmployeeCenterList()">
-      โหลดข้อมูล
-    </button>
-
-    <button class="btn-back"
-      onclick="loadUserAndRenderPortal()">
-      กลับ
-    </button>
-
-    <div id="employeeArea"></div>
-  `;
-
-  document.getElementById('app').innerHTML = html;
-
-  await loadBranchDropdown();
-}
-
-
-async function loadBranchDropdown() {
-  const select = document.getElementById('branchSelect');
-
-  const branches = [
-    'HQ',
-    'PikMee EV อีสท์วิลล์', 'PikMee LP ลาดพร้าว', 'PikMee PK ปิ่นเกล้า', 'PikMee BN บางนา', 'PikMee R9 พระราม9', 'PikMee R3 พระราม3', 'PikMee FI แฟชั่น', 'PikMee SC สีลม', 'PikMee R2 พระราม2',
-    'Cado EV อีสท์วิลล์', 'Cado LP ลาดพร้าว', 'Cado PK ปิ่นเกล้า', 'Cado BN บางนา', 'Cado R9 พระราม9', 'Cado R3 พระราม3', 'Cado CL ชิดลม', 'Cado R2 พระราม2'
-  ];
-
-  branches.forEach(function(branchId) {
-    const option = document.createElement('option');
-    option.value = branchId;
-    option.textContent = branchId;
-    select.appendChild(option);
-  });
-}
-
-
-async function loadEmployeeCenterList() {
-
-  const branchId =
-    document.getElementById('branchSelect').value;
-
-  const res = await callApi({
-    action:'getEmployeeCenterList',
-    line_uid:lineUid,
-    branch_id:branchId
-  });
-
-  if (!res.success) {
-    alert(res.message);
-    return;
-  }
-
-  const employees =
-    res.employees || [];
-
-  let html = '';
-
-  employees.forEach(function(emp){
-
-    html += `
-      <div class="head">
-
-        <b>
-          ${emp.employee_code}
-        </b><br>
-
-        ${emp.nickname || ''}
-
-        ${emp.first_name || ''}
-        ${emp.last_name || ''}
-
-        <br>
-
-        ${emp.branch_id || ''}
-
-        |
-        ${emp.position || ''}
-
-        |
-        ${emp.status || ''}
-
-        <br><br>
-
-        <button
-          class="btn-save"
-          onclick="
-            openEmployeeCenter(
-              '${emp.employee_code}'
-            )
-          ">
-          เปิดข้อมูล
-        </button>
-
-      </div>
-    `;
-  });
-
-  document.getElementById(
-    'employeeArea'
-  ).innerHTML = html;
-}
-
-
-async function openEmployeeCenter(employeeCode) {
-
-  const res = await callApi({
-    action:'getEmployeeCenterData',
-    line_uid:lineUid,
-    employee_code:employeeCode
-  });
-
-  renderEmployeeCenterResult(res);
-}
-
-
-function renderEmployeeCenterResult(res) {
-  const emp = res.employee || {};
-  const contact = res.contact || {};
-  const payroll = res.payroll_profile || {};
-  const leave = res.leave_balance || {};
-  const docs = res.documents || [];
-  const schedules = res.next_schedules || [];
-  const attendance = res.recent_attendance || [];
-  const chargeSummary = res.charge_summary || {};
-  const charges = chargeSummary.charges || [];
-  const kpi = res.attendance_kpi || {};
-
-  let html = `
-    <div class="head">
-      <div class="title">${emp.employee_code || '-'}</div>
-      <div class="sub">
-        ${emp.full_name || ''} (${emp.nickname || '-'})<br>
-        ${emp.branch_id || '-'} | ${emp.position || '-'} | ${emp.status || '-'}
-      </div>
-    </div>
-
-    <button class="btn-back" onclick="renderEmployeeCenter()">ค้นหาใหม่</button>
-    <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ Admin</button>
-    <br><br>
-
-    <div class="head">
-      <b>ข้อมูลทั่วไป</b><br>
-      เริ่มงาน: ${formatDate(emp.start_date)}<br>
-      ทดลองงานถึง: ${formatDate(emp.probation_end_date)}<br>
-      สถานะจ้างงาน: ${emp.employment_status || '-'}<br>
-      Role: ${emp.role || '-'}
-    </div>
-
-    <div class="head">
-      <b>KPI งวดนี้</b><br>
-      งวด: ${kpi.payroll_period || '-'}<br>
-      วันทำงาน: ${kpi.work_days || 0} วัน<br>
-      มาสาย: ${kpi.late_count || 0} ครั้ง / ${kpi.late_minutes || 0} นาที<br>
-      OT: ${kpi.ot_hours || 0} ชั่วโมง<br>
-      ขาดงาน: ${kpi.absent_days || 0} วัน
-    </div>
-
-    <div class="head">
-      <b>ข้อมูลติดต่อ</b><br>
-      เบอร์: ${contact.phone || '-'}<br>
-      ที่อยู่ปัจจุบัน: ${contact.current_address || '-'}<br>
-      ผู้ติดต่อฉุกเฉิน: ${contact.emergency_name || '-'} ${contact.emergency_phone || ''}
-    </div>
-
-    <div class="head">
-      <b>สิทธิ์ลา</b><br>
-      ปี: ${leave.year || '-'}<br>
-      ลาป่วยคงเหลือ: ${leave.sick_remaining || 0} วัน<br>
-      พักร้อนคงเหลือ: ${leave.vacation_remaining || 0} วัน<br>
-      HOT คงเหลือ: ${leave.hot_balance || 0}
-    </div>
-
-    <div class="head">
-      <b>Payroll Profile</b><br>
-      ประเภทเงินเดือน: ${payroll.salary_type || '-'}<br>
-      ฐานเงินเดือน: ${Number(payroll.base_salary || 0).toLocaleString()} บาท<br>
-      ค่าแรงรายวัน: ${Number(payroll.daily_wage || 0).toLocaleString()} บาท<br>
-      ธนาคาร: ${payroll.bank_name || '-'}<br>
-      เลขบัญชี: ${payroll.bank_account_no || '-'}
-    </div>
-  `;
-
-  html += `
-    <div class="head">
-      <b>ค่าใช้จ่ายพนักงาน</b><br>
-      รวมค้างอยู่: ${Number(chargeSummary.total_active_amount || 0).toLocaleString()} บาท<br><br>
-  `;
-
-  if (!charges.length) {
-    html += `ไม่มีรายการค่าใช้จ่าย<br>`;
-  } else {
-    charges.slice(0, 5).forEach(function(c) {
-      const active = String(c.active || '').trim() === 'TRUE';
-      const deducted = String(c.is_deducted || '').trim() === 'TRUE';
-
-      let statusText = 'ปิดแล้ว';
-      if (active && !deducted) statusText = 'ยังมีผล';
-      if (deducted) statusText = 'หักแล้ว';
-
-      html += `
-        ${c.charge_name || c.charge_type || '-'}<br>
-        จำนวน: ${Number(c.amount || 0).toLocaleString()} บาท |
-        สถานะ: ${statusText}<br>
-        ${c.expiry_date ? 'ครบกำหนด: ' + formatDate(c.expiry_date) + '<br>' : ''}
-        <br>
-      `;
-    });
-  }
-
-  html += `</div>`;
-
-  html += `
-    <div class="head">
-      <b>เอกสาร</b><br>
-  `;
-
-  if (!docs.length) {
-    html += `ยังไม่มีเอกสาร<br>`;
-  } else {
-    docs.forEach(function(doc) {
-      html += `
-        ${doc.doc_type || '-'} | ${doc.doc_status || '-'}<br>
-        ${
-          doc.file_url
-            ? `<button class="btn-back" onclick="window.open('${doc.file_url}', '_blank')">เปิดเอกสาร</button>`
-            : ''
-        }
-        <br>
-      `;
-    });
-  }
-
-  html += `</div>`;
-
-  html += `
-    <div class="head">
-      <b>ตารางงานถัดไป</b><br>
-  `;
-
-  if (!schedules.length) {
-    html += `ไม่มีตารางงาน<br>`;
-  } else {
-    schedules.forEach(function(s) {
-      html += `
-        ${formatDate(s.date)} | ${s.shift_name || '-'} |
-        ${s.start_time || '-'} - ${s.end_time || '-'}<br>
-      `;
-    });
-  }
-
-  html += `</div>`;
-
-  html += `
-    <div class="head">
-      <b>เข้างานล่าสุด</b><br>
-  `;
-
-  if (!attendance.length) {
-    html += `ไม่มีประวัติ<br>`;
-  } else {
-    attendance.forEach(function(a) {
-      html += `
-        ${formatDate(a.date)} | ${a.attendance_status || '-'} |
-        สาย ${a.late_minutes || 0} นาที<br>
-      `;
-    });
-  }
-
-  html += `</div>`;
-
-  document.getElementById('app').innerHTML = html;
-}
-
 
 async function renderSystemHealth() {
   const res = await callApi({
@@ -1934,6 +1693,71 @@ function renderEmployeeGroup(title, list) {
 }
 
 
+function buildChargeBranchOptions(employees) {
+  const branchMap = {};
+
+  employees.forEach(function(e) {
+    const branchId = String(e.branch_id || e.home_branch_id || '').trim();
+    if (!branchId) return;
+    branchMap[branchId] = true;
+  });
+
+  const ordered = HR_BRANCH_ORDER.filter(function(branchId) {
+    return branchMap[branchId];
+  });
+
+  Object.keys(branchMap).forEach(function(branchId) {
+    if (ordered.indexOf(branchId) === -1) {
+      ordered.push(branchId);
+    }
+  });
+
+  return ordered.map(function(branchId) {
+    return `
+      <option value="${branchId}">
+        ${HR_BRANCH_NAME_MAP[branchId] || branchId}
+      </option>
+    `;
+  }).join('');
+}
+
+function renderChargeEmployeeOptions() {
+  const branchId = document.getElementById('chargeBranchId').value;
+  const employeeSelect = document.getElementById('chargeEmployeeCode');
+
+  if (!branchId) {
+    employeeSelect.innerHTML = '<option value="">เลือกสาขาก่อน</option>';
+    return;
+  }
+
+  const list = chargeEmployees
+    .filter(function(e) {
+      const empBranchId = String(e.branch_id || e.home_branch_id || '').trim();
+      return empBranchId === branchId;
+    })
+    .sort(function(a, b) {
+      const nameA = String(a.nickname || a.first_name || a.employee_code || '');
+      const nameB = String(b.nickname || b.first_name || b.employee_code || '');
+      return nameA.localeCompare(nameB, 'th');
+    });
+
+  if (!list.length) {
+    employeeSelect.innerHTML = '<option value="">ไม่พบพนักงานในสาขานี้</option>';
+    return;
+  }
+
+  employeeSelect.innerHTML = `
+    <option value="">เลือกพนักงาน</option>
+    ${list.map(function(e) {
+      const name = `${e.employee_code} - ${e.nickname || e.first_name || ''} ${e.last_name || ''}`;
+      return `<option value="${e.employee_code}">${name}</option>`;
+    }).join('')}
+  `;
+}
+
+function getBranchName(branchId) {
+  return HR_BRANCH_NAME_MAP[branchId] || branchId || '-';
+}
     
     
   main();
