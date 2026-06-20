@@ -134,6 +134,108 @@
       color: #333;
       margin-top: 10px;
     }
+
+    .page-area {
+      padding: 16px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .back-btn {
+      border: none;
+      background: #f3f4f6;
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .date-label {
+      margin-bottom: 12px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .branch-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .branch-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .branch-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .branch-head span {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+.summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.summary-row span {
+  background: #f3f4f6;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.emp-group {
+  margin-top: 10px;
+}
+
+.emp-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.emp-group ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.emp-group li {
+  margin: 4px 0;
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.empty,
+.error {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+}
+    
   </style>
 </head>
 
@@ -325,7 +427,7 @@ function renderAdminPortal(name) {
       <div class="section-title">📊 ภาพรวม</div>
       <div class="grid">
       
-      <button class="btn" onclick="openPage('hrDashboard')">
+      <button class="btn" onclick="renderTodayTeamOverviewPage()">
       ทีมงานวันนี้
       <small>ภาพรวม HR รายวัน</small>
       </button>
@@ -1729,6 +1831,103 @@ async function submitPayrollDashboard() {
     </button>
   `;
 }
+
+
+    function renderTodayTeamOverviewPage() {
+  const app = document.getElementById('app') || document.body;
+
+  app.innerHTML = `
+    <div class="topbar">
+      <button class="back-btn" onclick="renderAdminHome()">← กลับ</button>
+      <h1>ทีมงานวันนี้</h1>
+    </div>
+
+    <div id="todayTeamArea" class="page-area">
+      กำลังโหลดข้อมูล...
+    </div>
+  `;
+
+  google.script.run
+    .withSuccessHandler(renderTodayTeamOverview)
+    .withFailureHandler(function(err) {
+      document.getElementById('todayTeamArea').innerHTML =
+        '<div class="error">โหลดข้อมูลไม่สำเร็จ: ' + err.message + '</div>';
+    })
+    .getTodayTeamOverview();
+}
+
+
+    function renderTodayTeamOverview(data) {
+  const area = document.getElementById('todayTeamArea');
+
+  if (!data || !data.branches || !data.branches.length) {
+    area.innerHTML = '<div class="empty">ไม่พบข้อมูลพนักงาน</div>';
+    return;
+  }
+
+  let html = `
+    <div class="date-label">วันที่ ${data.date}</div>
+  `;
+
+  data.branches.forEach(function(branch) {
+    html += `
+      <div class="branch-card">
+        <div class="branch-head">
+          <h2>${branch.branch_name}</h2>
+          <span>${branch.total_active} คน</span>
+        </div>
+
+        <div class="summary-row">
+          <span>เข้างานแล้ว ${branch.checked_in.length}</span>
+          <span>ยังไม่เข้า ${branch.not_checked_in.length}</span>
+          <span>ลา ${branch.on_leave.length}</span>
+          <span>ออกงานแล้ว ${branch.checked_out.length}</span>
+        </div>
+
+        ${renderEmployeeGroup('เข้างานแล้ว', branch.checked_in)}
+        ${renderEmployeeGroup('ยังไม่เข้า', branch.not_checked_in)}
+        ${renderEmployeeGroup('ลา', branch.on_leave)}
+        ${renderEmployeeGroup('ออกงานแล้ว', branch.checked_out)}
+      </div>
+    `;
+  });
+
+  area.innerHTML = html;
+}
+
+function renderEmployeeGroup(title, list) {
+  if (!list || !list.length) return '';
+
+  let html = `
+    <div class="emp-group">
+      <div class="emp-title">${title}</div>
+      <ul>
+  `;
+
+  list.forEach(function(emp) {
+    let extra = '';
+
+    if (emp.last_time) {
+      extra += ` <span class="muted">(${emp.last_time})</span>`;
+    }
+
+    if (emp.leave_type) {
+      extra += ` <span class="muted">(${emp.leave_type})</span>`;
+    }
+
+    html += `<li>${emp.name}${extra}</li>`;
+  });
+
+  html += `
+      </ul>
+    </div>
+  `;
+
+  return html;
+}
+
+
+    
     
   main();
 </script>
