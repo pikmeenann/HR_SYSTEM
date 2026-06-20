@@ -198,7 +198,8 @@
         <option value="C CL">C CL - CadoCado ชิดลม</option>
         <option value="C R2">C R2 - CadoCado พระราม2</option>
       </select>
-
+      
+      <input id="dateInput" class="input" type="date">
       <button class="btn" onclick="loadDashboard()">ดูสถานะ</button>
     </div>
 
@@ -236,6 +237,9 @@
 
         const profile = await liff.getProfile();
         lineUid = profile.userId;
+
+        document.getElementById('dateInput').value =
+        new Date().toISOString().slice(0, 10);
 
         const access = await callApi({
           action: 'getDashboardAccess',
@@ -292,9 +296,12 @@
       app.innerHTML = '<div class="card loading">กำลังโหลดข้อมูล...</div>';
 
       try {
+        const date = document.getElementById('dateInput').value;
+
         const res = await callApi({
           action: 'getBranchAttendanceDashboard',
-          branch_id: branchId
+          branch_id: branchId,
+          date: date
         });
 
         if (!res.success) {
