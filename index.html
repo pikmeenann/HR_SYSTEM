@@ -369,7 +369,7 @@ async function submitAction(action) {
       return;
     }
 
-    alert('บันทึกสำเร็จ');
+    alert(res.message || 'บันทึกสำเร็จ');
     await loadAttendanceData();
 
   } catch (err) {
