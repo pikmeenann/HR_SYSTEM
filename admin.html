@@ -584,6 +584,16 @@ function renderAdminPortal(name) {
       จัดการรายการ
       <small>ดู / ปิดรายการค่าใช้จ่าย</small>
       </button>
+
+      <button class="btn" onclick="renderEmployeeAdvanceForm()">
+      เบิกล่วงหน้า
+      <small>บันทึกเงินเบิกล่วงหน้า</small>
+      </button>
+
+      <button class="btn" onclick="renderEmployeeAdvanceList()">
+      จัดการเงินเบิก
+      <small>ดู / ปิด / ตรวจรายการเบิก</small>
+      </button>
       
       </div>
     </div>
@@ -661,6 +671,7 @@ function openPage(key) {
 
     
 let chargeEmployees = [];
+let advanceEmployees = [];
     
 async function renderEmployeeChargeForm() {
   const res = await callApi({
@@ -836,6 +847,180 @@ async function renderEmployeeChargeList() {
   });
 
   document.getElementById('app').innerHTML = html;
+}
+
+
+async function renderEmployeeAdvanceForm() {
+  const res = await callApi({
+    action: 'getChargeAdminData',
+    line_uid: lineUid
+  });
+
+  if (!res.success) {
+    alert(res.message || 'โหลดรายชื่อพนักงานไม่สำเร็จ');
+    return;
+  }
+
+  advanceEmployees = res.employees || [];
+
+  const branchOptions = buildChargeBranchOptions(advanceEmployees);
+
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">เบิกล่วงหน้า</div>
+      <div class="sub">บันทึกเงินเบิกล่วงหน้า และแผนหักคืน</div>
+    </div>
+
+    <div class="section">
+      <label class="label">เลือกสาขา</label>
+      <select id="advanceBranchId" class="input" onchange="renderAdvanceEmployeeOptions()">
+        <option value="">เลือกสาขา</option>
+        ${branchOptions}
+      </select>
+
+      <label class="label">เลือกพนักงาน</label>
+      <select id="advanceEmployeeCode" class="input">
+        <option value="">เลือกสาขาก่อน</option>
+      </select>
+
+      <label class="label">วันที่เบิก</label>
+      <input id="advanceRequestDate" class="input" type="text" placeholder="dd/mm/yyyy" value="${todayDdMmYyyy()}">
+
+      <label class="label">งวดที่เริ่มหัก</label>
+      <input id="advancePayrollPeriod" class="input" placeholder="เช่น 2026-06">
+
+      <label class="label">จำนวนเงินที่เบิก</label>
+      <input id="advanceAmount" class="input" type="number" placeholder="เช่น 5000">
+
+      <label class="label">รูปแบบการหัก</label>
+      <select id="advanceDeductMode" class="input" onchange="renderAdvanceDeductFields()">
+        <option value="ONE_TIME">หักงวดเดียว</option>
+        <option value="INSTALLMENT">แบ่งหักเท่ากัน</option>
+        <option value="CUSTOM">กำหนดยอดหักเอง</option>
+      </select>
+
+      <div id="advanceDeductFields"></div>
+
+      <label class="label">หมายเหตุ</label>
+      <textarea id="advanceNote" class="input" rows="3"></textarea>
+
+      <button class="btn-save" onclick="submitEmployeeAdvance()">บันทึกเงินเบิก</button>
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    </div>
+  `;
+
+  renderAdvanceDeductFields();
+}
+
+
+function renderAdvanceEmployeeOptions() {
+  const branchId = document.getElementById('advanceBranchId').value;
+  const employeeSelect = document.getElementById('advanceEmployeeCode');
+
+  if (!branchId) {
+    employeeSelect.innerHTML = '<option value="">เลือกสาขาก่อน</option>';
+    return;
+  }
+
+  const list = advanceEmployees
+    .filter(function(e) {
+      const empBranchId = String(e.branch_id || e.home_branch_id || '').trim();
+      return empBranchId === branchId;
+    })
+    .sort(function(a, b) {
+      const nameA = String(a.nickname || a.first_name || a.employee_code || '');
+      const nameB = String(b.nickname || b.first_name || b.employee_code || '');
+      return nameA.localeCompare(nameB, 'th');
+    });
+
+  if (!list.length) {
+    employeeSelect.innerHTML = '<option value="">ไม่พบพนักงานในสาขานี้</option>';
+    return;
+  }
+
+  employeeSelect.innerHTML = `
+    <option value="">เลือกพนักงาน</option>
+    ${list.map(function(e) {
+      const name =
+        `${e.employee_code} - ` +
+        `${e.first_name || ''} ${e.last_name || ''}` +
+        `${e.nickname ? ` (${e.nickname})` : ''}`;
+
+      return `<option value="${e.employee_code}">${name}</option>`;
+    }).join('')}
+  `;
+}
+
+
+function renderAdvanceDeductFields() {
+  const mode = document.getElementById('advanceDeductMode').value;
+  const area = document.getElementById('advanceDeductFields');
+
+  if (mode === 'ONE_TIME') {
+    area.innerHTML = `
+      <label class="label">จำนวนงวด</label>
+      <input id="advancePeriodCount" class="input" type="number" value="1" disabled>
+    `;
+    return;
+  }
+
+  if (mode === 'INSTALLMENT') {
+    area.innerHTML = `
+      <label class="label">จำนวนงวดที่หัก</label>
+      <input id="advancePeriodCount" class="input" type="number" value="2" min="2">
+    `;
+    return;
+  }
+
+  area.innerHTML = `
+    <label class="label">แผนหักเอง</label>
+    <textarea
+      id="advanceCustomSchedule"
+      class="input"
+      rows="6"
+      placeholder="ตัวอย่าง&#10;2026-06,2000&#10;2026-07,2500&#10;2026-08,2500"
+    ></textarea>
+  `;
+}
+
+
+async function submitEmployeeAdvance() {
+  const mode = document.getElementById('advanceDeductMode').value;
+
+  const data = {
+    line_uid: lineUid,
+    employee_code: document.getElementById('advanceEmployeeCode').value.trim(),
+    branch_id: document.getElementById('advanceBranchId').value.trim(),
+    request_date: parseDdMmYyyyToIso(document.getElementById('advanceRequestDate').value),
+    payroll_period: document.getElementById('advancePayrollPeriod').value.trim(),
+    advance_amount: document.getElementById('advanceAmount').value,
+    deduct_mode: mode,
+    deduct_period_count: mode === 'CUSTOM'
+      ? ''
+      : document.getElementById('advancePeriodCount').value,
+    custom_schedule: mode === 'CUSTOM'
+      ? document.getElementById('advanceCustomSchedule').value.trim()
+      : '',
+    note: document.getElementById('advanceNote').value.trim()
+  };
+
+  if (!data.employee_code) return alert('กรุณาเลือกพนักงาน');
+  if (!data.request_date) return alert('กรุณากรอกวันที่เป็น dd/mm/yyyy');
+  if (!data.payroll_period) return alert('กรุณากรอกงวดที่เริ่มหัก เช่น 2026-06');
+  if (!data.advance_amount) return alert('กรุณากรอกจำนวนเงินที่เบิก');
+
+  const res = await callApi({
+    action: 'saveEmployeeAdvance',
+    data: data
+  });
+
+  if (!res.success) {
+    alert(res.message || 'บันทึกเงินเบิกไม่สำเร็จ');
+    return;
+  }
+
+  alert('บันทึกเงินเบิกล่วงหน้าเรียบร้อยแล้ว');
+  await loadUserAndRenderPortal();
 }
 
     
