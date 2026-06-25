@@ -1773,7 +1773,7 @@ function renderChargeEmployeeOptions() {
   employeeSelect.innerHTML = `
     <option value="">เลือกพนักงาน</option>
     ${list.map(function(e) {
-      const name = `${e.employee_code} - ${e.nickname || e.first_name || ''} ${e.last_name || ''}`;
+      const name = `${e.employee_code} - ` + `${e.first_name || ''} ${e.last_name || ''}` +  `${e.nickname ? ` (${e.nickname})` : ''}`;
       return `<option value="${e.employee_code}">${name}</option>`;
     }).join('')}
   `;
