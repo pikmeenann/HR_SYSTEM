@@ -312,6 +312,47 @@ const HR_BRANCH_NAME_MAP = {
   'C R3': 'คาโด้ พระราม 3'
 };
 
+
+function getBranchSortIndex(branchId) {
+  const idx = HR_BRANCH_ORDER.indexOf(String(branchId || '').trim());
+  return idx === -1 ? 999 : idx;
+}
+
+
+function todayDdMmYyyy() {
+  const d = new Date();
+  return formatDateDdMmYyyy(d);
+}
+
+function formatDateDdMmYyyy(value) {
+  if (!value) return '';
+
+  const d = new Date(value);
+  if (isNaN(d.getTime())) {
+    const str = String(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const parts = str.split('-');
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return str;
+  }
+
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+function parseDdMmYyyyToIso(str) {
+  str = String(str || '').trim();
+
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return '';
+
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
     
 async function main() {
     try {
@@ -620,7 +661,7 @@ function openPage(key) {
 
     
 let chargeEmployees = [];
-
+    
 async function renderEmployeeChargeForm() {
   const res = await callApi({
     action: 'getChargeAdminData',
@@ -668,7 +709,7 @@ async function renderEmployeeChargeForm() {
       <input id="chargeAmount" class="input" type="number" placeholder="เช่น 500">
 
       <label class="label">วันที่เกิดรายการ</label>
-      <input id="chargeEventDate" class="input" type="date">
+      <input id="chargeEventDate" class="input" type="text" placeholder="dd/mm/yyyy" value="${todayDdMmYyyy()}">
 
       <label class="label">มีผลผูกพันกี่ปี</label>
       <input id="chargeYears" class="input" type="number" value="1">
@@ -690,7 +731,7 @@ async function submitEmployeeCharge() {
       charge_type: document.getElementById('chargeType').value,
       charge_name: document.getElementById('chargeName').value.trim(),
       amount: document.getElementById('chargeAmount').value,
-      charge_event_date: document.getElementById('chargeEventDate').value,
+      charge_event_date: parseDdMmYyyyToIso(document.getElementById('chargeEventDate').value),
       deduct_if_resign_before_years: document.getElementById('chargeYears').value,
       note: document.getElementById('chargeNote').value.trim()
     };
@@ -698,7 +739,7 @@ async function submitEmployeeCharge() {
     if (!data.employee_code) return alert('กรุณากรอกรหัสพนักงาน');
     if (!data.charge_name) return alert('กรุณากรอกชื่อรายการ');
     if (!data.amount) return alert('กรุณากรอกจำนวนเงิน');
-    if (!data.charge_event_date) return alert('กรุณาเลือกวันที่เกิดรายการ');
+    if (!data.charge_event_date) return alert('กรุณากรอกวันที่เป็นรูปแบบ dd/mm/yyyy เช่น 25/06/2026');
 
     const res = await callApi({
       action: 'saveEmployeeCharge',
@@ -744,31 +785,54 @@ async function renderEmployeeChargeList() {
     return;
   }
 
+  const grouped = {};
+
   charges.forEach(function(c) {
-    const active = String(c.active || '').trim() === 'TRUE';
-    const deducted = String(c.is_deducted || '').trim() === 'TRUE';
+    const branchId = String(c.branch_id || c.home_branch_id || 'ไม่ระบุสาขา').trim();
 
-    let statusText = 'ปิดแล้ว';
-    if (active && !deducted) statusText = 'ยังมีผล';
-    if (deducted) statusText = 'หักแล้ว';
+    if (!grouped[branchId]) grouped[branchId] = [];
+    grouped[branchId].push(c);
+  });
 
+  const branchIds = Object.keys(grouped).sort(function(a, b) {
+    return getBranchSortIndex(a) - getBranchSortIndex(b);
+  });
+
+  branchIds.forEach(function(branchId) {
     html += `
-      <div class="head">
-        <b>${c.charge_name || c.charge_type || '-'}</b><br>
-        ${c.employee_code || '-'} ${c.employee_name || ''}<br>
-        จำนวนเงิน: ${Number(c.amount || 0).toLocaleString()} บาท<br>
-        วันที่รายการ: ${formatDate(c.charge_event_date)}<br>
-        ครบกำหนด: ${formatDate(c.expiry_date)}<br>
-        สถานะ: <b>${statusText}</b><br>
-        ${c.note ? 'หมายเหตุ: ' + c.note + '<br>' : ''}
-
-        ${
-          active && !deducted
-            ? `<button class="btn-back" onclick="closeCharge('${c.charge_id}')">ปิดรายการ</button>`
-            : ''
-        }
-      </div>
+      <div class="section">
+        <div class="title">${getBranchName(branchId)}</div>
+        <div class="sub">${branchId}</div>
     `;
+
+    grouped[branchId].forEach(function(c) {
+      const active = String(c.active || '').trim() === 'TRUE';
+      const deducted = String(c.is_deducted || '').trim() === 'TRUE';
+
+      let statusText = 'ปิดแล้ว';
+      if (active && !deducted) statusText = 'ยังมีผล';
+      if (deducted) statusText = 'หักแล้ว';
+
+      html += `
+        <div class="head">
+          <b>${c.charge_name || c.charge_type || '-'}</b><br>
+          ${c.employee_code || '-'} ${c.employee_name || ''}<br>
+          จำนวนเงิน: ${Number(c.amount || 0).toLocaleString()} บาท<br>
+          วันที่รายการ: ${formatDateDdMmYyyy(c.charge_event_date)}<br>
+          ครบกำหนด: ${formatDateDdMmYyyy(c.expiry_date)}<br>
+          สถานะ: <b>${statusText}</b><br>
+          ${c.note ? 'หมายเหตุ: ' + c.note + '<br>' : ''}
+
+          ${
+            active && !deducted
+              ? `<button class="btn-back" onclick="closeCharge('${c.charge_id}')">ปิดรายการ</button>`
+              : ''
+          }
+        </div>
+      `;
+    });
+
+    html += `</div>`;
   });
 
   document.getElementById('app').innerHTML = html;
