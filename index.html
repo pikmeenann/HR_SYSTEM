@@ -262,6 +262,37 @@
     .dot.work { background: #ddd; }
     .dot.off { background: #f4b6b6; }
     .dot.holiday { background: #b8e8b8; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .summary-box {
+      background: #eef6e8;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .summary-box.orange { background: #fff0d6; }
+    .summary-box.red { background: #ffe2e2; }
+
+    .day-cell.present { background: #f4fbf0; }
+    .day-cell.late {
+      background: #fff0d6;
+      color: #9a5a00;
+    }
+    .day-cell.missing { background: #fff7cc; }
+    .day-cell.hot { background: #e4f6df; }
+    .day-cell.off { background: #ffe2e2; }
+
+    .late-text {
+      color: #b05a00;
+      font-weight: 800;
+    }
   </style>
 </head>
 
@@ -297,6 +328,17 @@
       </div>
     </section>
 
+    <section id="pageAttendanceHistory" class="page">
+      <div class="card">
+        <div class="title">ประวัติการเข้างาน</div>
+        <div class="sub" id="attendanceHistoryInfo">กำลังโหลดข้อมูล...</div>
+      </div>
+
+      <div id="attendanceHistoryApp">
+        <div class="card loading">กำลังโหลด...</div>
+      </div>
+    </section>
+
   </div>
 
   <script>
@@ -312,6 +354,7 @@
     let loadedProfile = false;
     let loadedSchedule = false;
     let loadedLeave = false;
+    let loadedAttendanceHistory = false;
 
     async function main() {
       try {
@@ -384,6 +427,7 @@
       if (name === 'Profile' && !loadedProfile) loadProfile();
       if (name === 'Schedule' && !loadedSchedule) loadSchedule();
       if (name === 'Leave' && !loadedLeave) loadLeaveForm();
+      if (name === 'AttendanceHistory' && !loadedAttendanceHistory) { loadAttendanceHistory();}
     }
 
     async function loadAttendanceData() {
@@ -683,7 +727,7 @@
           </span>
         </button>
 
-        <button class="btn" onclick="openAttendanceHistory()">🕒 ประวัติการเข้างาน</button>
+        <button class="btn" onclick="showPage('AttendanceHistory')">🕒 ประวัติการเข้างาน</button>
         <button class="btn" onclick="openLeaveHistory()">📋 ประวัติการลา</button>
       `;
     }
@@ -1030,10 +1074,6 @@
       window.location.href = 'https://liff.line.me/2010317944-VaiuSU2q';
     }
 
-    function openAttendanceHistory() {
-      window.location.href = 'https://liff.line.me/2010317944-JFsW8yLs';
-    }
-
     function openLeaveHistory() {
       window.location.href = 'https://liff.line.me/2010317944-2vwp7PAW';
     }
@@ -1247,6 +1287,196 @@
 
       return y + '-' + m + '-' + day;
     }
+
+    //==================================================
+    // ATTENDANCE HISTORY
+    //==================================================
+
+    async function loadAttendanceHistory() {
+      loadedAttendanceHistory = true;
+
+      document.getElementById('attendanceHistoryApp').innerHTML =
+        '<div class="card loading">กำลังโหลด...</div>';
+
+      try {
+        const res = await callApi({
+          action: 'getMyAttendanceHistory',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError('attendanceHistoryApp', res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        renderAttendanceHistory(res);
+
+      } catch (err) {
+        showError('attendanceHistoryApp', err.message || err);
+      }
+    }
+
+    function renderAttendanceHistory(res) {
+      const emp = res.employee || {};
+      const rows = res.rows || [];
+      const summary = res.summary || {};
+
+      document.getElementById('attendanceHistoryInfo').innerHTML =
+        `${emp.nickname || ''} · ${emp.employee_code || ''}<br>` +
+        `รอบ ${formatFullThaiDate(res.range_start)} - ${formatFullThaiDate(res.range_end)}`;
+
+      const dailyMap = buildAttendanceDailyMap(rows);
+
+      document.getElementById('attendanceHistoryApp').innerHTML = `
+        <div class="card">
+          <div class="summary-grid">
+            <div class="summary-box orange">
+              <div class="num">${summary.late_count || 0}</div>
+              <div class="label">มาสาย<br>${summary.late_minutes || 0} นาที</div>
+            </div>
+
+            <div class="summary-box">
+              <div class="num">${summary.ot_hours || '0.00'}</div>
+              <div class="label">OT สะสม<br>ชั่วโมง</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="legend">
+            <span><i class="dot present"></i> มีบันทึกเวลา</span>
+            <span><i class="dot late"></i> มาสาย</span>
+            <span><i class="dot none"></i> ไม่มีบันทึก</span>
+          </div>
+
+          ${buildAttendanceHistoryCalendar(
+            res.range_start,
+            res.range_end,
+            dailyMap,
+            summary.by_date || {}
+          )}
+        </div>
+      `;
+    }
+  
+    function buildAttendanceDailyMap(rows) {
+      const map = {};
+
+      rows.forEach(function(r) {
+        const dateText = r.date;
+
+        if (!map[dateText]) {
+          map[dateText] = {
+            date: dateText,
+            check_in: '',
+            check_out: ''
+          };
+        }
+
+        if (r.check_type === 'CHECK_IN') {
+          if (
+            !map[dateText].check_in ||
+            new Date(r.datetime) < new Date(map[dateText].check_in)
+          ) {
+            map[dateText].check_in = r.datetime;
+          }
+        }
+
+        if (r.check_type === 'CHECK_OUT') {
+          if (
+            !map[dateText].check_out ||
+            new Date(r.datetime) > new Date(map[dateText].check_out)
+            ) {
+            map[dateText].check_out = r.datetime;
+          }
+        }
+      });
+
+      return map;
+    }
+
+    function buildAttendanceHistoryCalendar(startText, endText, dailyMap, summaryMap) {
+      const weekHeads = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
+
+      const start = new Date(startText);
+      const end = new Date(endText);
+
+      const first = new Date(start);
+      const day = first.getDay();
+      const mondayOffset = day === 0 ? -6 : 1 - day;
+      first.setDate(first.getDate() + mondayOffset);
+
+      let html = '<div class="calendar">';
+
+      weekHeads.forEach(function(w) {
+        html += '<div class="day-head">' + w + '</div>';
+      });
+
+      const current = new Date(first);
+      const todayText = toDateText(new Date());
+
+      while (current <= end || current.getDay() !== 1) {
+        const dateText = toDateText(current);
+        const inRange = current >= start && current <= end;
+
+        const dayData = dailyMap[dateText] || null;
+        const daySummary = summaryMap[dateText] || {};
+
+        const attendanceStatus = daySummary.attendance_status || '';
+        const lateMinutes = Number(daySummary.late_minutes || 0);
+
+        let cls = 'day-cell';
+        let content = '';
+
+        if (!inRange) {
+          cls += ' empty-cell';
+        } else {
+          const isToday = dateText === todayText;
+
+          content = '<div class="day-num">' + current.getDate() + '</div>';
+
+       if (attendanceStatus === 'OFF') {
+         cls += ' off';
+         content += '<div class="time-line"><b>หยุด</b></div>';
+        } else if (attendanceStatus === 'HOT') {
+          cls += ' hot';
+          content += '<div class="time-line"><b>HOT</b></div>';
+        } else if (dayData && dayData.check_in) {
+          const missingCheckout = !dayData.check_out;
+
+        if (missingCheckout) {
+          cls += ' missing';
+        } else if (lateMinutes > 0) {
+          cls += ' late';
+        } else {
+          cls += ' present';
+        }
+
+        content +=
+          '<div class="time-line">เข้า ' + formatTime(dayData.check_in) + '</div>' +
+          '<div class="time-line">ออก ' + formatTime(dayData.check_out) + '</div>' +
+          (
+            lateMinutes > 0
+              ? '<div class="time-line late-text">สาย ' + lateMinutes + ' นาที</div>'
+              : ''
+          );
+      }
+
+      if (isToday) {
+        cls += ' today';
+        content += '<div class="today-tag"></div>';
+      }
+    }
+
+    html += '<div class="' + cls + '">' + content + '</div>';
+
+    current.setDate(current.getDate() + 1);
+    if (current > end && current.getDay() === 1) break;
+    }
+
+    html += '</div>';
+    return html;
+  }
 
     function getOS() {
       const ua = navigator.userAgent || '';
