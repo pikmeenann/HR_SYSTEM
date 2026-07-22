@@ -658,6 +658,11 @@ function renderAdminPortal(name) {
       Export Center
       <small>ส่งออกรายงาน HR</small>
       </button>
+
+      <button class="btn" onclick="renderAttendanceTimesheetExport()">
+      Export เวลาเข้าออก
+      <small>สร้างชีตแยกสาขาและพนักงาน</small>
+      </button>
       
       </div>
     </div>
@@ -1966,6 +1971,211 @@ function renderChargeEmployeeOptions() {
 
 function getBranchName(branchId) {
   return HR_BRANCH_NAME_MAP[branchId] || branchId || '-';
+}
+
+
+function renderAttendanceTimesheetExport() {
+  const currentPeriod = getCurrentPayrollPeriodForInput();
+
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">Export เวลาเข้าออก</div>
+      <div class="sub">
+        สร้าง Google Sheets แยกแท็บตามสาขา
+        และเรียงข้อมูลพนักงานทุกคน
+      </div>
+    </div>
+
+    <div class="section">
+      <label class="label">งวดเงินเดือน</label>
+
+      <input
+        id="attendanceExportPeriod"
+        class="input"
+        type="month"
+        value="${currentPeriod}"
+      >
+
+      <div class="head" style="margin-top:16px;">
+        <b>รูปแบบรายงาน</b><br><br>
+
+        ระบบจะสร้าง Google Sheets ใหม่ใน Drive<br>
+        แยกหนึ่งแท็บต่อหนึ่งสาขา<br>
+        และแสดงพนักงานทุกคนในสาขานั้น<br><br>
+
+        งวดที่เลือกจะยึดวันที่ 21 ของเดือนก่อนหน้า
+        ถึงวันที่ 20 ของเดือนที่เลือก
+      </div>
+
+      <button
+        id="attendanceExportButton"
+        class="btn-save"
+        onclick="submitAttendanceTimesheetExport()"
+      >
+        สร้างไฟล์ Google Sheets
+      </button>
+
+      <button
+        class="btn-back"
+        onclick="loadUserAndRenderPortal()"
+      >
+        กลับ
+      </button>
+    </div>
+  `;
+}
+
+
+function getCurrentPayrollPeriodForInput() {
+  const now = new Date();
+
+  /*
+   * ถ้าวันที่ปัจจุบันเกินวันที่ 20
+   * ให้ถือเป็นงวดของเดือนถัดไป
+   *
+   * เช่น วันที่ 22 กรกฎาคม
+   * จะเป็นงวด 2026-08
+   * ซึ่งครอบคลุม 21 ก.ค. - 20 ส.ค.
+   */
+
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1;
+
+  if (now.getDate() > 20) {
+    month++;
+
+    if (month > 12) {
+      month = 1;
+      year++;
+    }
+  }
+
+  return (
+    String(year) +
+    '-' +
+    String(month).padStart(2, '0')
+  );
+}
+
+
+async function submitAttendanceTimesheetExport() {
+  const periodInput =
+    document.getElementById('attendanceExportPeriod');
+
+  const exportButton =
+    document.getElementById('attendanceExportButton');
+
+  const payrollPeriod =
+    String(periodInput.value || '').trim();
+
+  if (!payrollPeriod) {
+    alert('กรุณาเลือกงวดเงินเดือน');
+    return;
+  }
+
+  const periodText =
+    getAttendanceExportPeriodText(payrollPeriod);
+
+  if (
+    !confirm(
+      'ยืนยันสร้างรายงานเวลาเข้าออก\\n\\n' +
+      'งวด: ' + payrollPeriod + '\\n' +
+      'ช่วงวันที่: ' + periodText
+    )
+  ) {
+    return;
+  }
+
+  exportButton.disabled = true;
+  exportButton.textContent = 'กำลังสร้างไฟล์...';
+
+  const res = await callApi({
+    action: 'exportAttendanceTimesheetByBranch',
+    data: {
+      line_uid: lineUid,
+      payroll_period: payrollPeriod,
+      user_code: 'ADMIN',
+      user_name: 'ADMIN'
+    }
+  });
+
+  exportButton.disabled = false;
+  exportButton.textContent = 'สร้างไฟล์ Google Sheets';
+
+  if (!res.success) {
+    alert(res.message || 'สร้างไฟล์ไม่สำเร็จ');
+    return;
+  }
+
+  renderAttendanceTimesheetExportResult(res);
+}
+
+
+function getAttendanceExportPeriodText(payrollPeriod) {
+  const match =
+    String(payrollPeriod || '')
+      .match(/^(\d{4})-(\d{2})$/);
+
+  if (!match) return '-';
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+
+  const startDate =
+    new Date(year, month - 2, 21);
+
+  const endDate =
+    new Date(year, month - 1, 20);
+
+  return (
+    formatDateDdMmYyyy(startDate) +
+    ' - ' +
+    formatDateDdMmYyyy(endDate)
+  );
+}
+
+
+function renderAttendanceTimesheetExportResult(res) {
+  document.getElementById('app').innerHTML = `
+    <div class="head">
+      <div class="title">สร้างไฟล์เรียบร้อยแล้ว</div>
+
+      <div class="sub">
+        งวด ${res.payroll_period || '-'}<br>
+        วันที่ ${formatDateDdMmYyyy(res.start_date)}
+        ถึง ${formatDateDdMmYyyy(res.end_date)}<br>
+        จำนวนสาขา ${res.branch_count || 0} สาขา
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="head">
+        <b>${res.file_name || 'รายงานเวลาเข้าออก'}</b><br><br>
+        ไฟล์ถูกสร้างเป็น Google Sheets ใน Drive แล้ว
+      </div>
+
+      <button
+        class="btn-save"
+        onclick="window.open('${res.url}', '_blank')"
+      >
+        เปิดไฟล์ Google Sheets
+      </button>
+
+      <button
+        class="btn-back"
+        onclick="renderAttendanceTimesheetExport()"
+      >
+        Export งวดอื่น
+      </button>
+
+      <button
+        class="btn-back"
+        onclick="loadUserAndRenderPortal()"
+      >
+        กลับหน้า Admin Center
+      </button>
+    </div>
+  `;
 }
     
     
