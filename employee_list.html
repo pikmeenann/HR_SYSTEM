@@ -122,6 +122,68 @@
   font-size: 14px;
   font-weight: 800;
 }
+
+    .branch-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+.branch-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.branch-name {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.branch-meta {
+  font-size: 12px;
+  color: #777;
+  margin-top: 3px;
+}
+
+.employee-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.employee-item {
+  padding: 10px 4px;
+  border-top: 1px solid #eee;
+  cursor: pointer;
+}
+
+.employee-item:first-child {
+  border-top: none;
+}
+
+.employee-main {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.employee-code {
+  margin-left: 6px;
+  font-size: 12px;
+  color: #888;
+  font-weight: 500;
+}
+
+.employee-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #777;
+}
+    
   </style>
 </head>
 
@@ -199,14 +261,76 @@ const HR_BRANCH_NAME_MAP = {
   'C R3': 'คาโด้ พระราม 3',
 };
 
-    async function callApi(payload) {
+async function callApi(payload) {
+  const action = String(payload && payload.action || '');
+
+  const canRetry = action.indexOf('get') === 0;
+  const maxAttempts = canRetry ? 3 : 1;
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
       const res = await fetch(GAS_API_URL, {
         method: 'POST',
-        body: JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        redirect: 'follow'
       });
 
-      return await res.json();
+      const text = await res.text();
+      const trimmed = String(text || '').trim();
+
+      if (!res.ok) {
+        throw new Error('SERVER_HTTP_' + res.status);
+      }
+
+      if (
+        trimmed.charAt(0) === '<' ||
+        /^<!doctype html/i.test(trimmed) ||
+        /^<html/i.test(trimmed)
+      ) {
+        throw new Error('SERVER_RETURNED_HTML');
+      }
+
+      try {
+        return JSON.parse(trimmed);
+      } catch (err) {
+        throw new Error('INVALID_SERVER_RESPONSE');
+      }
+
+    } catch (err) {
+      lastError = err;
+
+      if (attempt < maxAttempts) {
+        await waitBeforeRetry(attempt);
+      }
     }
+  }
+
+  const errorText = String(
+    lastError && lastError.message
+      ? lastError.message
+      : lastError || ''
+  );
+
+  return {
+    success: false,
+    message:
+      'ระบบเชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณารอสักครู่แล้วกดลองใหม่'
+  };
+}
+
+function waitBeforeRetry(attempt) {
+  const delay = attempt === 1 ? 800 : 1600;
+
+  return new Promise(function(resolve) {
+    setTimeout(resolve, delay);
+  });
+}
 
     async function main() {
       try {
@@ -270,14 +394,20 @@ const HR_BRANCH_NAME_MAP = {
   const app = document.getElementById('app');
 
   if (!list.length) {
-    app.innerHTML = '<div class="card empty">ไม่พบข้อมูลพนักงาน</div>';
+    app.innerHTML =
+      '<div class="card empty">ไม่พบข้อมูลพนักงาน</div>';
     return;
   }
 
   const branchMap = {};
 
   list.forEach(function(emp) {
-    const branchId = String(emp.branch_id || emp.home_branch_id || '').trim() || 'ไม่ระบุสาขา';
+    const branchId =
+      String(
+        emp.branch_id ||
+        emp.home_branch_id ||
+        ''
+      ).trim() || 'ไม่ระบุสาขา';
 
     if (!branchMap[branchId]) {
       branchMap[branchId] = [];
@@ -286,9 +416,13 @@ const HR_BRANCH_NAME_MAP = {
     branchMap[branchId].push(emp);
   });
 
-  const orderedBranches = HR_BRANCH_ORDER.filter(function(branchId) {
-    return branchMap[branchId] && branchMap[branchId].length;
-  });
+  const orderedBranches =
+    HR_BRANCH_ORDER.filter(function(branchId) {
+      return (
+        branchMap[branchId] &&
+        branchMap[branchId].length
+      );
+    });
 
   Object.keys(branchMap).forEach(function(branchId) {
     if (orderedBranches.indexOf(branchId) === -1) {
@@ -299,49 +433,75 @@ const HR_BRANCH_NAME_MAP = {
   let html = '';
 
   orderedBranches.forEach(function(branchId) {
-    const branchEmployees = branchMap[branchId] || [];
+    const branchEmployees =
+      branchMap[branchId] || [];
 
     branchEmployees.sort(function(a, b) {
-      const nameA = String(a.nickname || a.full_name || a.employee_code || '');
-      const nameB = String(b.nickname || b.full_name || b.employee_code || '');
+      const nameA =
+        String(
+          a.nickname ||
+          a.full_name ||
+          a.employee_code ||
+          ''
+        );
+
+      const nameB =
+        String(
+          b.nickname ||
+          b.full_name ||
+          b.employee_code ||
+          ''
+        );
+
       return nameA.localeCompare(nameB, 'th');
     });
 
     html += `
-      <div class="branch-title">
-        ${HR_BRANCH_NAME_MAP[branchId] || branchId}
-        <span class="branch-count">(${branchEmployees.length} คน)</span>
-      </div>
+      <div class="branch-card">
+        <div class="branch-head">
+          <div>
+            <div class="branch-name">
+              ${HR_BRANCH_NAME_MAP[branchId] || branchId}
+            </div>
+
+            <div class="branch-meta">
+              ${branchId}
+            </div>
+          </div>
+
+          <div class="branch-count">
+            ${branchEmployees.length} คน
+          </div>
+        </div>
+
+        <ul class="employee-list">
     `;
 
     branchEmployees.forEach(function(emp) {
       html += `
-        <div class="row">
-          <div class="name">
-            ${emp.nickname || '-'}
-            <span style="font-size:13px;color:#888;">${emp.employee_code || ''}</span>
+        <li
+          class="employee-item"
+          onclick="openEmployee('${emp.employee_code}')"
+        >
+          <div class="employee-main">
+            • ${emp.nickname || emp.full_name || '-'}
+            <span class="employee-code">
+              ${emp.employee_code || ''}
+            </span>
           </div>
 
-          <div class="meta">
-            ${emp.full_name || ''}<br>
-            สาขา: ${HR_BRANCH_NAME_MAP[emp.branch_id] || emp.branch_id || '-'}<br>
-            ตำแหน่ง: ${emp.position || '-'}<br>
-            เริ่มงาน: ${formatDate(emp.start_date)}
+          <div class="employee-sub">
+            ${emp.full_name || ''}
+            ${emp.position ? ' · ' + emp.position : ''}
           </div>
-
-          <div class="pill">
-            ${emp.role || '-'} · ${emp.employment_status || '-'}
-          </div>
-
-          <button
-            class="open-btn"
-            onclick="openEmployee('${emp.employee_code}')"
-          >
-            เปิดข้อมูล
-          </button>
-        </div>
+        </li>
       `;
     });
+
+    html += `
+        </ul>
+      </div>
+    `;
   });
 
   app.innerHTML = html;
