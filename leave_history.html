@@ -203,13 +203,103 @@ const LIFF_ID = '2010317944-2vwp7PAW';
 const GAS_API_URL =
 'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
 
-async function callApi(payload){
-  const res = await fetch(GAS_API_URL,{
-    method:'POST',
-    body:JSON.stringify(payload)
-  });
+async function callApi(payload) {
+  const action = String(payload && payload.action || '');
 
-  return await res.json();
+  const canRetry = action.indexOf('get') === 0;
+  const maxAttempts = canRetry ? 3 : 1;
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        redirect: 'follow'
+      });
+
+      const text = await res.text();
+      const trimmed = String(text || '').trim();
+
+      if (!res.ok) {
+        throw new Error('SERVER_HTTP_' + res.status);
+      }
+
+      if (
+        trimmed.charAt(0) === '<' ||
+        /^<!doctype html/i.test(trimmed) ||
+        /^<html/i.test(trimmed)
+      ) {
+        console.error('API returned HTML instead of JSON', {
+          action: action,
+          status: res.status,
+          response: trimmed.slice(0, 500)
+        });
+
+        throw new Error('SERVER_RETURNED_HTML');
+      }
+
+      try {
+        return JSON.parse(trimmed);
+      } catch (err) {
+        throw new Error('INVALID_SERVER_RESPONSE');
+      }
+
+    } catch (err) {
+      lastError = err;
+
+      console.error('API request failed', {
+        action: action,
+        attempt: attempt,
+        maxAttempts: maxAttempts,
+        error: err
+      });
+
+      if (attempt < maxAttempts) {
+        await waitBeforeRetry(attempt);
+      }
+    }
+  }
+
+  const errorText = String(
+    lastError && lastError.message
+      ? lastError.message
+      : lastError || ''
+  );
+
+  if (
+    errorText === 'SERVER_RETURNED_HTML' ||
+    errorText.indexOf('SERVER_HTTP_') === 0 ||
+    errorText === 'INVALID_SERVER_RESPONSE' ||
+    errorText.indexOf('Failed to fetch') !== -1 ||
+    errorText.indexOf('NetworkError') !== -1
+  ) {
+    return {
+      success: false,
+      message:
+        'ระบบเชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณารอสักครู่แล้วกดลองใหม่'
+    };
+  }
+
+  return {
+    success: false,
+    message:
+      errorText ||
+      'ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่'
+  };
+}
+
+function waitBeforeRetry(attempt) {
+  const delay = attempt === 1 ? 800 : 1600;
+
+  return new Promise(function(resolve) {
+    setTimeout(resolve, delay);
+  });
 }
 
 async function main(){
@@ -255,18 +345,55 @@ function translateStatus(status){
   return map[status] || status || '-';
 }
 
-function formatDate(value){
+function parseDateOnly(value) {
+  if (!value) return null;
 
-  if(!value) return '-';
+  if (value instanceof Date) {
+    return isNaN(value.getTime())
+      ? null
+      : new Date(
+          value.getFullYear(),
+          value.getMonth(),
+          value.getDate(),
+          12, 0, 0, 0
+        );
+  }
 
-  const d = new Date(value);
+  const text = String(value).trim();
 
-  if(isNaN(d.getTime())) return value;
+  const match = text.match(
+    /^(\d{4})-(\d{2})-(\d{2})$/
+  );
 
-  return d.toLocaleDateString('th-TH',{
-    year:'numeric',
-    month:'short',
-    day:'numeric'
+  if (match) {
+    return new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+      12, 0, 0, 0
+    );
+  }
+
+  const fallback = new Date(text);
+
+  return isNaN(fallback.getTime())
+    ? null
+    : fallback;
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+
+  const d = parseDateOnly(value);
+
+  if (!d) {
+    return String(value);
+  }
+
+  return d.toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
   });
 }
 
@@ -415,8 +542,10 @@ function getLeaveStatusInfo(status) {
   function formatFullThaiDate(value) {
   if (!value) return '-';
 
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
+  const d = parseDateOnly(value);
+  if (!d) {
+  return String(value);
+  }
 
   const weekdays = [
     'วันอาทิตย์',
@@ -474,11 +603,18 @@ function getThaiMonthFull(monthIndex) {
 function formatLeaveDateRange(startValue, endValue) {
   if (!startValue) return '-';
 
-  const start = new Date(startValue);
-  const end = endValue ? new Date(endValue) : start;
+const start = parseDateOnly(startValue);
+const end = endValue
+  ? parseDateOnly(endValue)
+  : start;
 
-  if (isNaN(start.getTime())) return startValue;
-  if (isNaN(end.getTime())) return startValue;
+if (!start) {
+  return String(startValue);
+}
+
+if (!end) {
+  return String(startValue);
+}
 
   const startDay = start.getDate();
   const endDay = end.getDate();
@@ -517,10 +653,12 @@ function getDateBadgeInfo(startValue, endValue) {
     };
   }
 
-  const start = new Date(startValue);
-  const end = endValue ? new Date(endValue) : start;
+const start = parseDateOnly(startValue);
+const end = endValue
+  ? parseDateOnly(endValue)
+  : start;
 
-  if (isNaN(start.getTime())) {
+if (!start) {
     return {
       day: '-',
       month: ''
@@ -528,7 +666,7 @@ function getDateBadgeInfo(startValue, endValue) {
   }
 
   if (
-    !isNaN(end.getTime()) &&
+    end &&
     start.getFullYear() === end.getFullYear() &&
     start.getMonth() === end.getMonth() &&
     start.getDate() !== end.getDate()
