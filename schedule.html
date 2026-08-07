@@ -211,14 +211,104 @@
     const GAS_API_URL =
       'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
 
-    async function callApi(payload) {
+async function callApi(payload) {
+  const action = String(payload && payload.action || '');
+
+  const canRetry = action.indexOf('get') === 0;
+  const maxAttempts = canRetry ? 3 : 1;
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
       const res = await fetch(GAS_API_URL, {
         method: 'POST',
-        body: JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        redirect: 'follow'
       });
 
-      return await res.json();
+      const text = await res.text();
+      const trimmed = String(text || '').trim();
+
+      if (!res.ok) {
+        throw new Error('SERVER_HTTP_' + res.status);
+      }
+
+      if (
+        trimmed.charAt(0) === '<' ||
+        /^<!doctype html/i.test(trimmed) ||
+        /^<html/i.test(trimmed)
+      ) {
+        console.error('API returned HTML instead of JSON', {
+          action: action,
+          status: res.status,
+          response: trimmed.slice(0, 500)
+        });
+
+        throw new Error('SERVER_RETURNED_HTML');
+      }
+
+      try {
+        return JSON.parse(trimmed);
+      } catch (err) {
+        throw new Error('INVALID_SERVER_RESPONSE');
+      }
+
+    } catch (err) {
+      lastError = err;
+
+      console.error('API request failed', {
+        action: action,
+        attempt: attempt,
+        maxAttempts: maxAttempts,
+        error: err
+      });
+
+      if (attempt < maxAttempts) {
+        await waitBeforeRetry(attempt);
+      }
     }
+  }
+
+  const errorText = String(
+    lastError && lastError.message
+      ? lastError.message
+      : lastError || ''
+  );
+
+  if (
+    errorText === 'SERVER_RETURNED_HTML' ||
+    errorText.indexOf('SERVER_HTTP_') === 0 ||
+    errorText === 'INVALID_SERVER_RESPONSE' ||
+    errorText.indexOf('Failed to fetch') !== -1 ||
+    errorText.indexOf('NetworkError') !== -1
+  ) {
+    return {
+      success: false,
+      message:
+        'ระบบเชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณารอสักครู่แล้วกดลองใหม่'
+    };
+  }
+
+  return {
+    success: false,
+    message:
+      errorText ||
+      'ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่'
+  };
+}
+
+function waitBeforeRetry(attempt) {
+  const delay = attempt === 1 ? 800 : 1600;
+
+  return new Promise(function(resolve) {
+    setTimeout(resolve, delay);
+  });
+}
 
     async function main() {
       try {
@@ -233,12 +323,20 @@
 
         const profile = await liff.getProfile();
 
-        const result = await callApi({
-          action: 'getMySchedule',
-          line_uid: profile.userId
-        });
+const result = await callApi({
+  action: 'getMySchedule',
+  line_uid: profile.userId
+});
 
-        renderSchedule(result);
+if (!result.success) {
+  showError(
+    result.message ||
+    'โหลดตารางงานไม่สำเร็จ'
+  );
+  return;
+}
+
+renderSchedule(result);
 
       } catch (err) {
         showError(err.message || err);
@@ -288,18 +386,57 @@
       }).join('');
     }
 
-    function formatDate(value) {
-      if (!value) return '-';
+    function parseDateOnly(value) {
+  if (!value) return null;
 
-      const d = new Date(value);
-      if (isNaN(d.getTime())) return value;
+  if (value instanceof Date) {
+    return isNaN(value.getTime())
+      ? null
+      : new Date(
+          value.getFullYear(),
+          value.getMonth(),
+          value.getDate(),
+          12, 0, 0, 0
+        );
+  }
 
-      return d.toLocaleDateString('th-TH', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short'
-      });
-    }
+  const text = String(value).trim();
+
+  const match = text.match(
+    /^(\d{4})-(\d{2})-(\d{2})$/
+  );
+
+  if (match) {
+    return new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+      12, 0, 0, 0
+    );
+  }
+
+  const fallback = new Date(text);
+
+  return isNaN(fallback.getTime())
+    ? null
+    : fallback;
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+
+  const d = parseDateOnly(value);
+
+  if (!d) {
+    return String(value);
+  }
+
+  return d.toLocaleDateString('th-TH', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short'
+  });
+}
 
     function formatTimeOnly(value) {
       if (!value) return '-';
@@ -378,14 +515,22 @@
   }
 
   const scheduleMap = {};
-  days.forEach(function(d) {
-    scheduleMap[toDateText(new Date(d.date))] = d;
-  });
+days.forEach(function(d) {
+  const dateObj = parseDateOnly(d.date);
+
+  if (!dateObj) return;
+
+  scheduleMap[toDateText(dateObj)] = d;
+});
 
   const holidayMap = {};
-  holidays.forEach(function(h) {
-    holidayMap[h.date] = h;
-  });
+holidays.forEach(function(h) {
+  const dateObj = parseDateOnly(h.date);
+
+  if (!dateObj) return;
+
+  holidayMap[toDateText(dateObj)] = h;
+});
 
   app.innerHTML = `
     <div class="card">
@@ -408,8 +553,11 @@
     function formatFullThaiDate(value) {
   if (!value) return '-';
 
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
+const d = parseDateOnly(value);
+
+if (!d) {
+  return String(value);
+}
 
   const weekdays = [
     'วันอาทิตย์',
@@ -447,8 +595,12 @@
 function buildCalendarHtml(startText, endText, scheduleMap, holidayMap) {
   const weekHeads = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์'];
 
-  const start = new Date(startText);
-  const end = new Date(endText);
+const start = parseDateOnly(startText);
+const end = parseDateOnly(endText);
+
+if (!start || !end) {
+  return '<div class="error">รูปแบบวันที่ของรอบไม่ถูกต้อง</div>';
+}
 
   const first = new Date(start);
   const day = first.getDay(); // Sun=0
