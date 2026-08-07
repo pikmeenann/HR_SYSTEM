@@ -127,6 +127,58 @@
       color: #fff;
       margin-top: 10px;
     }
+
+    .btn-danger {
+  width: 100%;
+  border: none;
+  border-radius: 18px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  background: #c94c4c;
+  color: #fff;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-group {
+  margin-top: 14px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.form-control {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.resign-box {
+  background: #fff3f3;
+  border-radius: 18px;
+  padding: 14px;
+  margin-top: 12px;
+}
+
+.warning-text {
+  color: #a33;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 8px;
+}
   </style>
 </head>
 
@@ -144,6 +196,7 @@
       'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
 
     let lineUid = '';
+let currentEmployee = null;
 
 async function callApi(payload) {
   const action = String(payload && payload.action || '');
@@ -284,6 +337,7 @@ function waitBeforeRetry(attempt) {
     function renderDetail(res) {
       const e = res.employee || {};
       const l = res.leave_balance || {};
+        currentEmployee = e;
       const schedules = res.next_schedules || [];
       const attendance = res.recent_attendance || [];
 
@@ -336,13 +390,275 @@ function waitBeforeRetry(attempt) {
         </div>
 
         <div class="card">
-          <div class="section-title">ประวัติเข้างานล่าสุด</div>
-          ${renderAttendance(attendance)}
-        </div>
+        <div class="section-title">ประวัติเข้างานล่าสุด</div>
+        ${renderAttendance(attendance)}
+      </div>
 
-        <button class="btn" onclick="history.back()">กลับ</button>
+      ${renderEmployeeManagement(e, res)}
+
+      <button class="btn" onclick="history.back()">กลับ</button>
       `;
     }
+
+    function renderEmployeeManagement(employee, res) {
+  const canManage =
+    res.can_manage_employee === true;
+
+  if (!canManage) {
+    return '';
+  }
+
+const isResigned =
+  String(employee.employment_status || '')
+    .trim()
+    .toUpperCase() === 'RESIGNED';
+
+  if (isResigned) {
+    return `
+      <div class="card">
+        <div class="section-title">จัดการพนักงาน</div>
+
+        <div class="resign-box">
+          <b>พนักงานลาออกแล้ว</b><br>
+          วันทำงานวันสุดท้าย:
+          ${formatDate(employee.resign_date)}<br>
+          เหตุผล:
+          ${employee.resign_reason || '-'}
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="card">
+      <div class="section-title">จัดการพนักงาน</div>
+
+      <button
+        class="btn-danger"
+        onclick="showResignForm()"
+      >
+        บันทึกพนักงานลาออก
+      </button>
+
+      <div
+        id="resignForm"
+        class="resign-box"
+        style="display:none;"
+      >
+        <div class="form-group">
+          <label class="form-label">
+            วันทำงานวันสุดท้าย
+          </label>
+
+          <input
+            type="date"
+            id="resignDate"
+            class="form-control"
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            เหตุผลที่ลาออก
+          </label>
+
+<select
+  id="resignReason"
+  class="form-control"
+>
+  <option value="">-- เลือกเหตุผล --</option>
+  <option value="ลาออกเอง">ลาออกเอง</option>
+  <option value="ไม่ผ่านทดลองงาน">ไม่ผ่านทดลองงาน</option>
+  <option value="เลิกจ้าง">เลิกจ้าง</option>
+  <option value="หมดสัญญา">หมดสัญญา</option>
+  <option value="กลับประเทศ">กลับประเทศ</option>
+  <option value="อื่นๆ">อื่นๆ</option>
+</select>
+        </div>
+
+        <div class="warning-text">
+          เมื่อยืนยันแล้ว สถานะพนักงานจะถูกเปลี่ยนเป็น
+          RESIGNED / INACTIVE และพนักงานจะไม่สามารถ
+          เช็กอินเข้าสู่ระบบได้
+        </div>
+
+        <button
+          id="confirmResignBtn"
+          class="btn-danger"
+          onclick="submitResignation()"
+        >
+          ยืนยันการลาออก
+        </button>
+
+        <button
+          class="btn"
+          onclick="hideResignForm()"
+        >
+          ยกเลิก
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+    function showResignForm() {
+  const form = document.getElementById('resignForm');
+
+  if (!form) return;
+
+  form.style.display = 'block';
+}
+
+    function hideResignForm() {
+  const form = document.getElementById('resignForm');
+
+  if (!form) return;
+
+  form.style.display = 'none';
+
+  const dateInput =
+    document.getElementById('resignDate');
+
+  const reasonInput =
+    document.getElementById('resignReason');
+
+  if (dateInput) {
+    dateInput.value = '';
+  }
+
+  if (reasonInput) {
+    reasonInput.value = '';
+  }
+}
+
+    async function submitResignation() {
+  if (window.isResigning) return;
+
+  if (!currentEmployee) {
+    alert('ไม่พบข้อมูลพนักงาน');
+    return;
+  }
+
+  const resignDate =
+    document.getElementById('resignDate').value;
+
+  const resignReason =
+    document.getElementById('resignReason').value;
+
+  if (!resignDate) {
+    alert('กรุณาระบุวันทำงานวันสุดท้าย');
+    return;
+  }
+
+  if (!resignReason) {
+    alert('กรุณาเลือกเหตุผลลาออก');
+    return;
+  }
+
+  const employeeName =
+    currentEmployee.nickname ||
+    currentEmployee.full_name ||
+    currentEmployee.employee_code;
+
+  const confirmed = confirm(
+    'ยืนยันบันทึกลาออกให้ ' +
+    employeeName +
+    ' ?\n\n' +
+    'วันทำงานวันสุดท้าย: ' +
+    formatDate(resignDate) +
+    '\n' +
+    'เหตุผล: ' +
+    resignReason +
+    '\n\n' +
+    'หลังยืนยัน พนักงานจะถูกตัดสิทธิ์การใช้งานระบบทันที'
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  window.isResigning = true;
+
+  const button =
+    document.getElementById('confirmResignBtn');
+
+  if (button) {
+    button.disabled = true;
+    button.textContent =
+      'กำลังบันทึก...';
+  }
+
+  try {
+    const res = await callApi({
+      action: 'resignEmployee',
+
+      data: {
+        line_uid: lineUid,
+        employee_code:
+          currentEmployee.employee_code,
+        resign_date: resignDate,
+        resign_reason: resignReason
+      }
+    });
+
+    if (!res.success) {
+      alert(
+        res.message ||
+        'บันทึกการลาออกไม่สำเร็จ'
+      );
+      return;
+    }
+
+    alert(
+      res.message ||
+      'บันทึกพนักงานลาออกเรียบร้อยแล้ว'
+    );
+
+    await reloadEmployeeDetail();
+
+  } catch (err) {
+    alert(
+      err.message ||
+      'เกิดข้อผิดพลาดในการบันทึก'
+    );
+
+  } finally {
+    window.isResigning = false;
+
+    if (button) {
+      button.disabled = false;
+      button.textContent =
+        'ยืนยันการลาออก';
+    }
+  }
+}
+
+    async function reloadEmployeeDetail() {
+  const employeeCode =
+    currentEmployee &&
+    currentEmployee.employee_code;
+
+  if (!employeeCode) {
+    window.location.reload();
+    return;
+  }
+
+  const res = await callApi({
+    action: 'getEmployeeDetail',
+    line_uid: lineUid,
+    employee_code: employeeCode
+  });
+
+  if (!res.success) {
+    showError(
+      res.message ||
+      'โหลดข้อมูลพนักงานใหม่ไม่สำเร็จ'
+    );
+    return;
+  }
+
+  renderDetail(res);
+}
 
     function renderSchedules(list) {
       if (!list.length) {
