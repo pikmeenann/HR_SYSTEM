@@ -154,14 +154,104 @@
     let adminData = null;
     let currentMode = 'monthly';
 
-    async function callApi(payload) {
+async function callApi(payload) {
+  const action = String(payload && payload.action || '');
+
+  const canRetry = action.indexOf('get') === 0;
+  const maxAttempts = canRetry ? 3 : 1;
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
       const res = await fetch(GAS_API_URL, {
         method: 'POST',
-        body: JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        redirect: 'follow'
       });
 
-      return await res.json();
+      const text = await res.text();
+      const trimmed = String(text || '').trim();
+
+      if (!res.ok) {
+        throw new Error('SERVER_HTTP_' + res.status);
+      }
+
+      if (
+        trimmed.charAt(0) === '<' ||
+        /^<!doctype html/i.test(trimmed) ||
+        /^<html/i.test(trimmed)
+      ) {
+        console.error('API returned HTML instead of JSON', {
+          action: action,
+          status: res.status,
+          response: trimmed.slice(0, 500)
+        });
+
+        throw new Error('SERVER_RETURNED_HTML');
+      }
+
+      try {
+        return JSON.parse(trimmed);
+      } catch (err) {
+        throw new Error('INVALID_SERVER_RESPONSE');
+      }
+
+    } catch (err) {
+      lastError = err;
+
+      console.error('API request failed', {
+        action: action,
+        attempt: attempt,
+        maxAttempts: maxAttempts,
+        error: err
+      });
+
+      if (attempt < maxAttempts) {
+        await waitBeforeRetry(attempt);
+      }
     }
+  }
+
+  const errorText = String(
+    lastError && lastError.message
+      ? lastError.message
+      : lastError || ''
+  );
+
+  if (
+    errorText === 'SERVER_RETURNED_HTML' ||
+    errorText.indexOf('SERVER_HTTP_') === 0 ||
+    errorText === 'INVALID_SERVER_RESPONSE' ||
+    errorText.indexOf('Failed to fetch') !== -1 ||
+    errorText.indexOf('NetworkError') !== -1
+  ) {
+    return {
+      success: false,
+      message:
+        'ระบบเชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณารอสักครู่แล้วกดลองใหม่'
+    };
+  }
+
+  return {
+    success: false,
+    message:
+      errorText ||
+      'ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่'
+  };
+}
+
+function waitBeforeRetry(attempt) {
+  const delay = attempt === 1 ? 800 : 1600;
+
+  return new Promise(function(resolve) {
+    setTimeout(resolve, delay);
+  });
+}
 
     async function main() {
       try {
@@ -366,16 +456,22 @@
       const breakMinutes = document.getElementById('mBreak').value;
       const offDays = getCheckedValues('mOff');
 
-      if (!employeeCode || !periodStart || !periodEnd || !startTime || !endTime) {
-        alert('กรุณากรอกข้อมูลให้ครบ');
-        window.isSubmitting = false;
-        return;
-      }
+if (!employeeCode || !periodStart || !periodEnd || !startTime || !endTime) {
+  alert('กรุณากรอกข้อมูลให้ครบ');
+  window.isSubmitting = false;
+  return;
+}
 
-      if (!confirm('ยืนยันสร้างตารางทั้งรอบ? หากมีวันเดิม ระบบจะอัปเดตทับ')) {
-        window.isSubmitting = false;
-        return;
-      }
+if (!isValidTime24(startTime) || !isValidTime24(endTime)) {
+  alert('กรุณากรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00 หรือ 18:30');
+  window.isSubmitting = false;
+  return;
+}
+
+if (!confirm('ยืนยันสร้างตารางทั้งรอบ? หากมีวันเดิม ระบบจะอัปเดตทับ')) {
+  window.isSubmitting = false;
+  return;
+}
 
       try {
         document.getElementById('app').innerHTML =
@@ -394,12 +490,6 @@
             off_days: offDays
           }
         });
-
-        if (!isValidTime24(startTime) || !isValidTime24(endTime)) {
-  alert('กรุณากรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00 หรือ 18:30');
-  window.isSubmitting = false;
-  return;
-}
 
         if (!res.success) {
           showError(res.message || 'สร้างตารางไม่สำเร็จ');
@@ -443,13 +533,23 @@
         return;
       }
 
-      if (shift !== 'OFF' && shift !== 'LEAVE' && (!startTime || !endTime)) {
-        alert('กรุณาใส่เวลาเข้าและเวลาออก');
-        window.isSubmitting = false;
-        return;
-      }
+if (shift !== 'OFF' && shift !== 'LEAVE' && (!startTime || !endTime)) {
+  alert('กรุณาใส่เวลาเข้าและเวลาออก');
+  window.isSubmitting = false;
+  return;
+}
 
-      try {
+if (
+  shift !== 'OFF' &&
+  shift !== 'LEAVE' &&
+  (!isValidTime24(startTime) || !isValidTime24(endTime))
+) {
+  alert('กรุณากรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00 หรือ 18:30');
+  window.isSubmitting = false;
+  return;
+}
+
+try {
         document.getElementById('app').innerHTML =
           '<div class="card loading">กำลังบันทึก...</div>';
 
@@ -466,16 +566,6 @@
             note: note || 'แก้รายวัน'
           }
         });
-
-        if (
-  shift !== 'OFF' &&
-  shift !== 'LEAVE' &&
-  (!isValidTime24(startTime) || !isValidTime24(endTime))
-) {
-  alert('กรุณากรอกเวลาแบบ 24 ชั่วโมง เช่น 09:00 หรือ 18:30');
-  window.isSubmitting = false;
-  return;
-}
 
         if (!res.success) {
           showError(res.message || 'บันทึกไม่สำเร็จ');
