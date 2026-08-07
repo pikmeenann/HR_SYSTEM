@@ -217,14 +217,114 @@
     let lineUid = '';
     let dashboardAccess = null;
 
-    async function callApi(payload) {
+  async function callApi(payload) {
+  const action = String(payload && payload.action || '');
+
+  const canRetry = action.indexOf('get') === 0;
+  const maxAttempts = canRetry ? 3 : 1;
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
       const res = await fetch(GAS_API_URL, {
         method: 'POST',
-        body: JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        redirect: 'follow'
       });
 
-      return await res.json();
+      const text = await res.text();
+      const trimmed = String(text || '').trim();
+
+      if (!res.ok) {
+        throw new Error('SERVER_HTTP_' + res.status);
+      }
+
+      if (
+        trimmed.charAt(0) === '<' ||
+        /^<!doctype html/i.test(trimmed) ||
+        /^<html/i.test(trimmed)
+      ) {
+        console.error('API returned HTML instead of JSON', {
+          action: action,
+          status: res.status,
+          response: trimmed.slice(0, 500)
+        });
+
+        throw new Error('SERVER_RETURNED_HTML');
+      }
+
+      let result;
+
+      try {
+        result = JSON.parse(trimmed);
+      } catch (parseError) {
+        console.error('Invalid API response', {
+          action: action,
+          status: res.status,
+          response: trimmed.slice(0, 500)
+        });
+
+        throw new Error('INVALID_SERVER_RESPONSE');
+      }
+
+      return result;
+
+    } catch (err) {
+      lastError = err;
+
+      console.error('API request failed', {
+        action: action,
+        attempt: attempt,
+        maxAttempts: maxAttempts,
+        error: err
+      });
+
+      if (attempt < maxAttempts) {
+        await waitBeforeRetry(attempt);
+      }
     }
+  }
+
+  const errorText = String(
+    lastError && lastError.message
+      ? lastError.message
+      : lastError || ''
+  );
+
+  if (
+    errorText === 'SERVER_RETURNED_HTML' ||
+    errorText.indexOf('SERVER_HTTP_') === 0 ||
+    errorText === 'INVALID_SERVER_RESPONSE' ||
+    errorText.indexOf('Failed to fetch') !== -1 ||
+    errorText.indexOf('NetworkError') !== -1
+  ) {
+    return {
+      success: false,
+      message:
+        'ระบบเชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณารอสักครู่แล้วกดลองใหม่'
+    };
+  }
+
+  return {
+    success: false,
+    message:
+      errorText ||
+      'ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่'
+  };
+}
+
+function waitBeforeRetry(attempt) {
+  const delay = attempt === 1 ? 800 : 1600;
+
+  return new Promise(function(resolve) {
+    setTimeout(resolve, delay);
+  });
+}
 
     async function main() {
       try {
@@ -239,7 +339,7 @@
         lineUid = profile.userId;
 
         document.getElementById('dateInput').value =
-        new Date().toISOString().slice(0, 10);
+  todayText();
 
         const access = await callApi({
           action: 'getDashboardAccess',
@@ -434,22 +534,73 @@
     }
 
     function formatDate(value) {
-      if (!value) return '-';
+  if (!value) return '-';
 
-      const d = new Date(value);
-      if (isNaN(d.getTime())) return value;
+  const d = parseDateOnly(value);
 
-      return d.toLocaleDateString('th-TH', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    }
+  if (!d) {
+    return String(value);
+  }
+
+  return d.toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+}
 
     function showError(message) {
       document.getElementById('app').innerHTML =
         '<div class="card error">' + message + '</div>';
     }
+
+    function todayText() {
+  const d = new Date();
+
+  const year = d.getFullYear();
+  const month =
+    String(d.getMonth() + 1).padStart(2, '0');
+  const day =
+    String(d.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateOnly(value) {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return isNaN(value.getTime())
+      ? null
+      : new Date(
+          value.getFullYear(),
+          value.getMonth(),
+          value.getDate(),
+          12, 0, 0, 0
+        );
+  }
+
+  const text = String(value).trim();
+
+  const match = text.match(
+    /^(\d{4})-(\d{2})-(\d{2})$/
+  );
+
+  if (match) {
+    return new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+      12, 0, 0, 0
+    );
+  }
+
+  const fallback = new Date(text);
+
+  return isNaN(fallback.getTime())
+    ? null
+    : fallback;
+}
 
     main();
   </script>
