@@ -144,14 +144,104 @@
       }
     }
 
-    async function callApi(payload) {
+async function callApi(payload) {
+  const action = String(payload && payload.action || '');
+
+  const canRetry = action.indexOf('get') === 0;
+  const maxAttempts = canRetry ? 3 : 1;
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
       const res = await fetch(GAS_API_URL, {
         method: 'POST',
-        body: JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        redirect: 'follow'
       });
 
-      return await res.json();
+      const text = await res.text();
+      const trimmed = String(text || '').trim();
+
+      if (!res.ok) {
+        throw new Error('SERVER_HTTP_' + res.status);
+      }
+
+      if (
+        trimmed.charAt(0) === '<' ||
+        /^<!doctype html/i.test(trimmed) ||
+        /^<html/i.test(trimmed)
+      ) {
+        console.error('API returned HTML instead of JSON', {
+          action: action,
+          status: res.status,
+          response: trimmed.slice(0, 500)
+        });
+
+        throw new Error('SERVER_RETURNED_HTML');
+      }
+
+      try {
+        return JSON.parse(trimmed);
+      } catch (err) {
+        throw new Error('INVALID_SERVER_RESPONSE');
+      }
+
+    } catch (err) {
+      lastError = err;
+
+      console.error('API request failed', {
+        action: action,
+        attempt: attempt,
+        maxAttempts: maxAttempts,
+        error: err
+      });
+
+      if (attempt < maxAttempts) {
+        await waitBeforeRetry(attempt);
+      }
     }
+  }
+
+  const errorText = String(
+    lastError && lastError.message
+      ? lastError.message
+      : lastError || ''
+  );
+
+  if (
+    errorText === 'SERVER_RETURNED_HTML' ||
+    errorText.indexOf('SERVER_HTTP_') === 0 ||
+    errorText === 'INVALID_SERVER_RESPONSE' ||
+    errorText.indexOf('Failed to fetch') !== -1 ||
+    errorText.indexOf('NetworkError') !== -1
+  ) {
+    return {
+      success: false,
+      message:
+        'ระบบเชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณารอสักครู่แล้วกดลองใหม่'
+    };
+  }
+
+  return {
+    success: false,
+    message:
+      errorText ||
+      'ไม่สามารถเชื่อมต่อระบบได้ กรุณาลองใหม่'
+  };
+}
+
+function waitBeforeRetry(attempt) {
+  const delay = attempt === 1 ? 800 : 1600;
+
+  return new Promise(function(resolve) {
+    setTimeout(resolve, delay);
+  });
+}
 
     function renderForm(res) {
       const p = res.profile || {};
@@ -176,7 +266,11 @@
         <input id="endDate" type="date" class="input">
 
         <label id="reasonLabel">เหตุผล / หมายเหตุ</label>
-        <textarea id="reason" placeholder="ระบุเฉพาะกรณีลาป่วย หรือหมายเหตุเพิ่มเติม"></textarea>
+        <textarea
+  id="reason"
+  class="input"
+  placeholder="ระบุเฉพาะกรณีลาป่วย หรือหมายเหตุเพิ่มเติม"
+></textarea>
 
         <button class="btn" onclick="submitLeave()">ส่งคำขอลา</button>
 
@@ -184,33 +278,35 @@
           หลังส่งคำขอลาแล้ว กรุณารอหัวหน้าหรือ HR อนุมัติ
         </div>
       `;
+      updateReasonLabel();
     }
 
-    async function submitLeave() {
-      if (window.isSubmitting) return;
-      window.isSubmitting = true;
+async function submitLeave() {
+  if (window.isSubmitting) return;
 
-      const leaveType = document.getElementById('leaveType').value;
-      const startDate = document.getElementById('startDate').value;
-      const endDate = document.getElementById('endDate').value;
-      const reason = document.getElementById('reason').value.trim();
+  const leaveType = document.getElementById('leaveType').value;
+  const startDate = document.getElementById('startDate').value;
+  const endDate = document.getElementById('endDate').value;
+  const reason = document.getElementById('reason').value.trim();
 
-      if (!leaveType || !startDate || !endDate) {
-        alert('กรุณากรอกข้อมูลให้ครบ');
-        return;
-      }
+  if (!leaveType || !startDate || !endDate) {
+    alert('กรุณากรอกข้อมูลให้ครบ');
+    return;
+  }
 
-      if (
-        (leaveType === 'SICK' || leaveType === 'OTHER') &&
-        !reason
-      ) {
-        alert('กรุณาระบุเหตุผล');
-        return;
-      }
+  if (
+    (leaveType === 'SICK' || leaveType === 'OTHER') &&
+    !reason
+  ) {
+    alert('กรุณาระบุเหตุผล');
+    return;
+  }
 
-      document.getElementById('app').innerHTML =
-        '<div class="loading">กำลังส่งคำขอลา...</div>';
+  window.isSubmitting = true;
 
+  document.getElementById('app').innerHTML =
+    '<div class="loading">กำลังส่งคำขอลา...</div>';
+  
       try {
         const res = await callApi({
           action: 'submitLeaveRequest',
@@ -292,7 +388,6 @@ function updateReasonLabel() {
 }
 
     main();
-updateReasonLabel();
   </script>
 </body>
 </html>
