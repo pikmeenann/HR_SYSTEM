@@ -598,60 +598,305 @@ function waitBeforeRetry(attempt) {
     }
 
     async function submitAttendanceAction(action) {
-      if (window.isSubmitting) return;
+      if (window.isSubmitting) {
+        return;
+      }
+
       window.isSubmitting = true;
 
-      const ok = confirm('ยืนยันทำรายการนี้?');
-      if (!ok) {
+      const firstConfirm =
+        confirm('ยืนยันทำรายการนี้?');
+
+      if (!firstConfirm) {
         window.isSubmitting = false;
         return;
       }
 
       let photoBase64 = '';
 
-      if (action === 'CHECK_IN' || action === 'CHECK_OUT') {
-        photoBase64 = await captureFreshPhoto();
-        if (!photoBase64) {
-          window.isSubmitting = false;
-          return;
-        }
-      }
-
       try {
-        showLoading('attendanceApp', 'กำลังตรวจตำแหน่ง...');
+        if (
+          action === 'CHECK_IN' ||
+          action === 'CHECK_OUT'
+        ) {
+          photoBase64 =
+            await captureFreshPhoto();
 
-        const gps = await getCurrentLocation();
-
-        showLoading('attendanceApp', 'กำลังบันทึกข้อมูล...');
-
-        const res = await callApi({
-          action: 'recordAttendanceAction',
-          data: {
-            employee_code: attendanceData.employee_code,
-            check_type: action,
-            gps_lat: gps.lat,
-            gps_lng: gps.lng,
-            photo_base64: photoBase64,
-            device_info: navigator.userAgent,
-            os: getOS(),
-            app_version: 'LIFF_STAFF_CENTER_V1',
-            note: 'บันทึกจาก LIFF'
+          if (!photoBase64) {
+            return;
           }
+        }
+
+        showLoading(
+          'attendanceApp',
+          'กำลังตรวจตำแหน่ง...'
+        );
+
+        const gps =
+          await getCurrentLocation();
+
+        showLoading(
+          'attendanceApp',
+          'กำลังตรวจสอบเวลาทำงาน...'
+        );
+
+        const requestData = {
+          employee_code:
+            attendanceData.employee_code,
+
+          check_type: action,
+
+          gps_lat: gps.lat,
+          gps_lng: gps.lng,
+
+          photo_base64: photoBase64,
+
+          device_info:
+            navigator.userAgent,
+
+          os: getOS(),
+
+          app_version:
+            'LIFF_STAFF_CENTER_V1',
+
+          note:
+            'บันทึกจาก LIFF',
+
+          early_checkout_confirmed:
+            false,
+
+          early_checkout_reason:
+            ''
+        };
+
+        let res = await callApi({
+          action:
+            'recordAttendanceAction',
+
+          data: requestData
         });
 
+        /*
+         * เซิร์ฟเวอร์พบว่าเวลาไม่ครบ
+         * ให้พนักงานอ่านรายละเอียดและยืนยันอีกครั้ง
+         */
+        if (
+          res.requires_early_checkout_confirmation
+        ) {
+          const checkoutMessage =
+            buildEarlyCheckoutMessage_(res);
+
+          const confirmEarlyCheckout =
+            confirm(checkoutMessage);
+
+          if (!confirmEarlyCheckout) {
+            await loadAttendanceData();
+            return;
+          }
+
+          const reason =
+            requestEarlyCheckoutReason_();
+
+          if (!reason) {
+            alert(
+              'ยกเลิกการเช็กเอาต์ เนื่องจากไม่ได้ระบุเหตุผล'
+            );
+
+            await loadAttendanceData();
+            return;
+          }
+
+          requestData.early_checkout_confirmed =
+            true;
+
+          requestData.early_checkout_reason =
+            reason;
+
+          showLoading(
+            'attendanceApp',
+            'กำลังบันทึกการออกก่อนครบเวลา...'
+          );
+
+          /*
+           * ส่งข้อมูลเดิมซ้ำพร้อมคำยืนยัน
+           * ไม่ต้องถ่ายรูปและขอ GPS ใหม่
+           */
+          res = await callApi({
+            action:
+              'recordAttendanceAction',
+
+            data: requestData
+          });
+        }
+
         if (!res.success) {
-          showError('attendanceApp', res.message || 'บันทึกไม่สำเร็จ');
+          showError(
+            'attendanceApp',
+            res.message ||
+            'บันทึกไม่สำเร็จ'
+          );
+
           return;
         }
 
-        alert(res.message || 'บันทึกสำเร็จ');
+        alert(
+          res.message ||
+          'บันทึกสำเร็จ'
+        );
+
         await loadAttendanceData();
 
       } catch (err) {
-        showError('attendanceApp', err.message || err);
+        showError(
+          'attendanceApp',
+          err.message || err
+        );
+
       } finally {
         window.isSubmitting = false;
       }
+    }
+
+        function buildEarlyCheckoutMessage_(data) {
+      const grossTime =
+        formatWorkMinutes_(
+          data.gross_minutes
+        );
+
+      const breakTime =
+        formatWorkMinutes_(
+          data.break_minutes
+        );
+
+      const netTime =
+        formatWorkMinutes_(
+          data.net_minutes
+        );
+
+      const missingTime =
+        formatWorkMinutes_(
+          data.missing_minutes
+        );
+
+      return (
+        '⚠️ เวลาทำงานยังไม่ครบ\n\n' +
+
+        'เวลาตั้งแต่เข้างานรวม: ' +
+        grossTime + '\n' +
+
+        'หักเวลาพักอัตโนมัติ: ' +
+        breakTime + '\n' +
+
+        'เวลาทำงานสุทธิ: ' +
+        netTime + '\n' +
+
+        'ยังขาดอีก: ' +
+        missingTime + '\n\n' +
+
+        'ต้องการยืนยันเช็กเอาต์ตอนนี้หรือไม่?'
+      );
+    }
+
+
+    function formatWorkMinutes_(minutes) {
+      const totalMinutes = Math.max(
+        0,
+        Number(minutes || 0)
+      );
+
+      const hours = Math.floor(
+        totalMinutes / 60
+      );
+
+      const remainingMinutes =
+        totalMinutes % 60;
+
+      if (
+        hours > 0 &&
+        remainingMinutes > 0
+      ) {
+        return (
+          hours +
+          ' ชั่วโมง ' +
+          remainingMinutes +
+          ' นาที'
+        );
+      }
+
+      if (hours > 0) {
+        return hours + ' ชั่วโมง';
+      }
+
+      return remainingMinutes + ' นาที';
+    }
+
+        function requestEarlyCheckoutReason_() {
+      const choice = prompt(
+        'กรุณาระบุเหตุผลที่เช็กเอาต์ก่อนครบเวลา\n\n' +
+        '1 = หัวหน้าอนุญาตให้กลับก่อน\n' +
+        '2 = ลาป่วย / มีเหตุฉุกเฉิน\n' +
+        '3 = ทำงานตามตารางกะสั้น\n' +
+        '4 = ลืมเช็กอินหรือเวลาเข้างานไม่ถูกต้อง\n' +
+        '5 = อื่น ๆ\n\n' +
+        'กรุณาพิมพ์หมายเลข 1–5'
+      );
+
+      if (choice === null) {
+        return '';
+      }
+
+      const cleanChoice =
+        String(choice).trim();
+
+      const reasonMap = {
+        '1':
+          'หัวหน้าอนุญาตให้กลับก่อน',
+
+        '2':
+          'ลาป่วย / มีเหตุฉุกเฉิน',
+
+        '3':
+          'ทำงานตามตารางกะสั้น',
+
+        '4':
+          'ลืมเช็กอินหรือเวลาเข้างานไม่ถูกต้อง'
+      };
+
+      if (reasonMap[cleanChoice]) {
+        return reasonMap[cleanChoice];
+      }
+
+      if (cleanChoice === '5') {
+        const otherReason = prompt(
+          'กรุณาระบุเหตุผลเพิ่มเติม'
+        );
+
+        if (otherReason === null) {
+          return '';
+        }
+
+        const cleanOtherReason =
+          String(otherReason).trim();
+
+        if (!cleanOtherReason) {
+          alert(
+            'กรุณาระบุเหตุผลเพิ่มเติม'
+          );
+
+          return '';
+        }
+
+        return (
+          'อื่น ๆ: ' +
+          cleanOtherReason
+        );
+      }
+
+      alert(
+        'กรุณาเลือกหมายเลข 1–5'
+      );
+
+      return '';
     }
 
     function renderRegistrationForm() {
