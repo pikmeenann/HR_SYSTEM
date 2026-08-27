@@ -706,11 +706,32 @@ function waitBeforeRetry(attempt) {
             return;
           }
 
-          requestData.early_checkout_confirmed =
+                    requestData.early_checkout_confirmed =
             true;
 
           requestData.early_checkout_reason =
             reason;
+
+          /*
+           * ส่งผลที่เซิร์ฟเวอร์คำนวณในรอบแรกกลับไปด้วย
+           * เพื่อไม่ต้องอ่าน Attendance_Log ซ้ำ
+           */
+          requestData.early_checkout_work_time = {
+            gross_minutes:
+              res.gross_minutes,
+
+            break_minutes:
+              res.break_minutes,
+
+            net_minutes:
+              res.net_minutes,
+
+            required_minutes:
+              res.required_minutes,
+
+            missing_minutes:
+              res.missing_minutes
+          };
 
           showLoading(
             'attendanceApp',
