@@ -293,6 +293,47 @@
       color: #b05a00;
       font-weight: 800;
     }
+
+    .leave-history-card {
+      display: grid;
+      grid-template-columns: 74px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .leave-date-badge {
+      overflow: hidden;
+      border-radius: 14px;
+      background: #eef6e8;
+      text-align: center;
+    }
+
+    .leave-date-month {
+      padding: 6px 4px;
+      background: #7fb069;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .leave-date-day {
+      padding: 12px 4px;
+      font-size: 21px;
+      font-weight: 800;
+    }
+
+    .leave-status {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #fff0d6;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .leave-status.approved { background: #e4f6df; color: #2f6b2f; }
+    .leave-status.rejected { background: #ffe2e2; color: #a33; }
   </style>
 </head>
 
@@ -339,6 +380,22 @@
       </div>
     </section>
 
+    <section id="pageContact" class="page">
+      <div class="card" id="contactApp">
+        <div class="loading">กำลังโหลดข้อมูล...</div>
+      </div>
+    </section>
+
+    <section id="pageLeaveHistory" class="page">
+      <div class="card">
+        <div class="title">ประวัติการลา</div>
+        <div class="sub" id="leaveHistoryInfo">กำลังโหลดข้อมูล...</div>
+      </div>
+      <div id="leaveHistoryApp">
+        <div class="card loading">กำลังโหลดข้อมูล...</div>
+      </div>
+    </section>
+
   </div>
 
   <script>
@@ -355,6 +412,8 @@
     let loadedSchedule = false;
     let loadedLeave = false;
     let loadedAttendanceHistory = false;
+    let loadedContact = false;
+    let loadedLeaveHistory = false;
 
     async function main() {
       try {
@@ -524,7 +583,17 @@ function waitBeforeRetry(attempt) {
 
       if (startPage === 'leave') {
         showPage('Leave');
-      return;
+        return;
+      }
+
+      if (startPage === 'contact') {
+        showPage('Contact');
+        return;
+      }
+
+      if (startPage === 'leavehistory') {
+        showPage('LeaveHistory');
+        return;
       }
 
       showPage('Attendance');
@@ -544,6 +613,8 @@ function waitBeforeRetry(attempt) {
       if (name === 'Schedule' && !loadedSchedule) loadSchedule();
       if (name === 'Leave' && !loadedLeave) loadLeaveForm();
       if (name === 'AttendanceHistory' && !loadedAttendanceHistory) { loadAttendanceHistory();}
+      if (name === 'Contact' && !loadedContact) loadContact();
+      if (name === 'LeaveHistory' && !loadedLeaveHistory) loadLeaveHistory();
     }
 
     async function loadAttendanceData() {
@@ -1306,6 +1377,8 @@ function waitBeforeRetry(attempt) {
           return;
         }
 
+        loadedLeaveHistory = false;
+
         document.getElementById('leaveApp').innerHTML = `
           <div class="hello">ส่งคำขอลาแล้ว</div>
           <div class="sub">เลขที่คำขอ ${res.leave_id || '-'}</div>
@@ -1315,6 +1388,7 @@ function waitBeforeRetry(attempt) {
           </div>
 
           <button class="btn" onclick="resetLeaveForm()">ส่งคำขอใหม่</button>
+          <button class="btn orange" onclick="showPage('LeaveHistory')">ดูประวัติการลา</button>
         `;
 
       } catch (err) {
@@ -1453,11 +1527,11 @@ function waitBeforeRetry(attempt) {
     }
 
     function openContact() {
-      window.location.href = 'https://liff.line.me/2010317944-VaiuSU2q';
+      showPage('Contact');
     }
 
     function openLeaveHistory() {
-      window.location.href = 'https://liff.line.me/2010317944-2vwp7PAW';
+      showPage('LeaveHistory');
     }
 
     function translateAction(action) {
@@ -1859,6 +1933,235 @@ function waitBeforeRetry(attempt) {
     html += '</div>';
     return html;
   }
+
+    //==================================================
+    // CONTACT CENTER
+    //==================================================
+
+    async function loadContact() {
+      loadedContact = true;
+      showLoading('contactApp', 'กำลังโหลดข้อมูลติดต่อ...');
+
+      try {
+        const res = await callApi({
+          action: 'getEmployeeContact',
+          line_uid: lineUid
+        });
+
+        if (!res.success) {
+          showError('contactApp', res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        renderContactForm(res);
+      } catch (err) {
+        showError('contactApp', err.message || err);
+      }
+    }
+
+    function renderContactForm(res) {
+      const emp = res.employee || {};
+      const c = res.contact || {};
+
+      document.getElementById('contactApp').innerHTML = `
+        <div class="hello">ข้อมูลติดต่อ</div>
+        <div class="sub">${staffEscape(emp.nickname || '')} · ${staffEscape(emp.employee_code || '')}</div>
+
+        <label>เบอร์โทร</label>
+        <input id="staffPhone" class="input" inputmode="tel" value="${staffEscape(c.phone || '')}">
+
+        <label>ที่อยู่ตามทะเบียนบ้าน</label>
+        <textarea id="staffRegisteredAddress" class="input">${staffEscape(c.registered_address || '')}</textarea>
+
+        <label>ที่อยู่ปัจจุบันตรงกับทะเบียนบ้านหรือไม่</label>
+        <select id="staffCurrentAddressSame" class="input" onchange="toggleStaffCurrentAddress()">
+          <option value="TRUE" ${String(c.current_address_same) === 'TRUE' ? 'selected' : ''}>ตรงกัน</option>
+          <option value="FALSE" ${String(c.current_address_same) === 'FALSE' ? 'selected' : ''}>ไม่ตรงกัน</option>
+        </select>
+
+        <div id="staffCurrentAddressArea">
+          <label>ที่อยู่ปัจจุบัน</label>
+          <textarea id="staffCurrentAddress" class="input">${staffEscape(c.current_address || '')}</textarea>
+        </div>
+
+        <label>ชื่อผู้ติดต่อฉุกเฉิน</label>
+        <input id="staffEmergencyName" class="input" value="${staffEscape(c.emergency_name || '')}">
+
+        <label>ความสัมพันธ์</label>
+        <input id="staffEmergencyRelation" class="input" value="${staffEscape(c.emergency_relation || '')}" placeholder="เช่น แม่ / พี่ / คู่สมรส">
+
+        <label>เบอร์โทรฉุกเฉิน</label>
+        <input id="staffEmergencyPhone" class="input" inputmode="tel" value="${staffEscape(c.emergency_phone || '')}">
+
+        <button class="btn" onclick="saveContactInStaffCenter()">บันทึกข้อมูล</button>
+        <button class="btn orange" onclick="showPage('Profile')">กลับโปรไฟล์</button>
+      `;
+
+      toggleStaffCurrentAddress();
+    }
+
+    function toggleStaffCurrentAddress() {
+      const same = document.getElementById('staffCurrentAddressSame').value;
+      document.getElementById('staffCurrentAddressArea').style.display = same === 'TRUE' ? 'none' : 'block';
+    }
+
+    async function saveContactInStaffCenter() {
+      const data = {
+        phone: document.getElementById('staffPhone').value.trim(),
+        registered_address: document.getElementById('staffRegisteredAddress').value.trim(),
+        current_address_same: document.getElementById('staffCurrentAddressSame').value,
+        current_address: document.getElementById('staffCurrentAddress').value.trim(),
+        emergency_name: document.getElementById('staffEmergencyName').value.trim(),
+        emergency_relation: document.getElementById('staffEmergencyRelation').value.trim(),
+        emergency_phone: document.getElementById('staffEmergencyPhone').value.trim()
+      };
+
+      if (!data.phone || !data.registered_address || !data.emergency_name || !data.emergency_phone) {
+        alert('กรุณากรอกเบอร์โทร ที่อยู่ และผู้ติดต่อฉุกเฉินให้ครบ');
+        return;
+      }
+      if (data.current_address_same === 'FALSE' && !data.current_address) {
+        alert('กรุณากรอกที่อยู่ปัจจุบัน');
+        return;
+      }
+
+      showLoading('contactApp', 'กำลังบันทึกข้อมูล...');
+      try {
+        const res = await callApi({
+          action: 'saveEmployeeContact',
+          line_uid: lineUid,
+          data: data
+        });
+        if (!res.success) {
+          showError('contactApp', res.message || 'บันทึกไม่สำเร็จ');
+          return;
+        }
+
+        loadedProfile = false;
+        document.getElementById('contactApp').innerHTML = `
+          <div class="hello">บันทึกเรียบร้อย</div>
+          <div class="pill">ข้อมูลติดต่อและบุคคลฉุกเฉินถูกอัปเดตแล้ว</div>
+          <button class="btn" onclick="loadedContact=false;showPage('Contact')">ดูข้อมูลอีกครั้ง</button>
+          <button class="btn orange" onclick="showPage('Profile')">กลับโปรไฟล์</button>`;
+      } catch (err) {
+        showError('contactApp', err.message || err);
+      }
+    }
+
+    //==================================================
+    // LEAVE HISTORY
+    //==================================================
+
+    async function loadLeaveHistory() {
+      loadedLeaveHistory = true;
+      document.getElementById('leaveHistoryApp').innerHTML = '<div class="card loading">กำลังโหลดข้อมูล...</div>';
+
+      try {
+        const res = await callApi({
+          action: 'getMyLeaveHistory',
+          line_uid: lineUid
+        });
+        if (!res.success) {
+          showError('leaveHistoryApp', res.message || 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+        renderLeaveHistoryInStaffCenter(res);
+      } catch (err) {
+        showError('leaveHistoryApp', err.message || err);
+      }
+    }
+
+    function renderLeaveHistoryInStaffCenter(res) {
+      const emp = res.employee || {};
+      const rows = res.rows || [];
+      const summary = res.summary || {};
+
+      document.getElementById('leaveHistoryInfo').innerHTML =
+        staffEscape(emp.nickname || '') + ' · ' + staffEscape(emp.employee_code || '') + '<br>' +
+        'รอบ ' + staffEscape(formatFullThaiDate(res.range_start)) + ' - ' + staffEscape(formatFullThaiDate(res.range_end));
+
+      document.getElementById('leaveHistoryApp').innerHTML = `
+        <div class="card">
+          <div class="summary-grid">
+            <div class="summary-box"><div class="num">${Number(summary.sick_used || 0)}</div><div class="label">ลาป่วยใช้แล้ว</div></div>
+            <div class="summary-box"><div class="num">${Number(summary.vacation_used || 0)}</div><div class="label">พักร้อนใช้แล้ว</div></div>
+            <div class="summary-box orange"><div class="num">${Number(summary.pending_count || 0)}</div><div class="label">รออนุมัติ</div></div>
+            <div class="summary-box red"><div class="num">${Number(summary.rejected_count || 0)}</div><div class="label">ไม่อนุมัติ</div></div>
+          </div>
+        </div>
+        ${rows.length ? rows.map(renderStaffLeaveHistoryCard).join('') : '<div class="card">ยังไม่มีประวัติการลาในรอบนี้</div>'}
+        <div class="card"><button class="btn orange" onclick="showPage('Profile')">กลับโปรไฟล์</button></div>`;
+    }
+
+    function renderStaffLeaveHistoryCard(row) {
+      const badge = staffLeaveDateBadge(row.start_date, row.end_date);
+      const status = String(row.status || '').toUpperCase();
+      const statusLabel = status === 'APPROVED' ? 'อนุมัติแล้ว' : (status === 'REJECTED' ? 'ไม่อนุมัติ' : 'รออนุมัติ');
+      const statusClass = status === 'APPROVED' ? 'approved' : (status === 'REJECTED' ? 'rejected' : '');
+      const leaveNames = { SICK: 'ลาป่วย', PERSONAL: 'ลากิจ', VACATION: 'พักร้อน', HOT: 'ใช้ HOT', OTHER: 'อื่นๆ' };
+
+      return `
+        <div class="card">
+          <div class="leave-history-card">
+            <div class="leave-date-badge">
+              <div class="leave-date-month">${staffEscape(badge.month)}</div>
+              <div class="leave-date-day">${staffEscape(badge.day)}</div>
+            </div>
+            <div>
+              <div class="title" style="font-size:19px">${staffEscape(leaveNames[row.leave_type] || row.leave_type || '-')}</div>
+              <div class="note" style="margin-top:5px">
+                ${staffEscape(staffLeaveDateRange(row.start_date, row.end_date))}<br>
+                จำนวน ${Number(row.total_days || 0)} วัน<br>
+                เหตุผล: ${staffEscape(row.reason || '-')}
+                ${row.note ? '<br>หมายเหตุ: ' + staffEscape(row.note) : ''}
+              </div>
+              <span class="leave-status ${statusClass}">${statusLabel}</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function staffLeaveDateBadge(startValue, endValue) {
+      const start = parseDateOnlyForHistory(startValue);
+      const end = parseDateOnlyForHistory(endValue) || start;
+      if (!start) return { day: '-', month: '' };
+      const day = end && start.getMonth() === end.getMonth() && start.getDate() !== end.getDate()
+        ? start.getDate() + '-' + end.getDate()
+        : String(start.getDate());
+      return { day: day, month: staffThaiMonth(start.getMonth()) };
+    }
+
+    function staffLeaveDateRange(startValue, endValue) {
+      const start = parseDateOnlyForHistory(startValue);
+      const end = parseDateOnlyForHistory(endValue) || start;
+      if (!start) return String(startValue || '-');
+      if (!end) return String(startValue || '-');
+      const startText = start.getDate() + ' ' + staffThaiMonth(start.getMonth()) + ' ' + (start.getFullYear() + 543);
+      if (start.getTime() === end.getTime()) return startText;
+      return startText + ' - ' + end.getDate() + ' ' + staffThaiMonth(end.getMonth()) + ' ' + (end.getFullYear() + 543);
+    }
+
+    function parseDateOnlyForHistory(value) {
+      if (!value) return null;
+      const match = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const date = match
+        ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0)
+        : new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    function staffThaiMonth(index) {
+      return ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][index] || '';
+    }
+
+    function staffEscape(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
     function getOS() {
       const ua = navigator.userAgent || '';
