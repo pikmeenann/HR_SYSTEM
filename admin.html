@@ -358,6 +358,89 @@
   font-size: 13px;
 }
 
+.attendance-branch-card {
+  padding: 14px;
+  margin-bottom: 11px;
+  border: 1px solid #dfe9e2;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.attendance-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.attendance-stat {
+  padding: 10px 6px;
+  border-radius: 10px;
+  background: #f2f7f3;
+  text-align: center;
+}
+
+.attendance-stat b { display: block; font-size: 20px; color: #235c37; }
+.attendance-stat small { font-size: 11px; color: #647268; }
+.attendance-stat.warn { background: #fff5df; }
+.attendance-stat.danger { background: #fff0f0; }
+.attendance-stat.info { background: #edf4ff; }
+
+.attendance-employee {
+  margin-bottom: 12px;
+  border: 1px solid #dfe8e2;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.attendance-employee > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px;
+}
+
+.attendance-employee > summary::-webkit-details-marker { display: none; }
+.attendance-calendar-wrap { padding: 0 12px 14px; overflow-x: auto; }
+
+.attendance-calendar {
+  min-width: 720px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.attendance-day-head {
+  padding: 7px 3px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #526459;
+}
+
+.attendance-day {
+  min-height: 76px;
+  padding: 6px;
+  border: 1px solid #e1e8e3;
+  border-radius: 8px;
+  background: #fafcfb;
+  font-size: 10px;
+}
+
+.attendance-day.empty { visibility: hidden; }
+.attendance-day.present { background: #eaf7ef; border-color: #b9dfc5; }
+.attendance-day.late { background: #fff3d9; border-color: #eed399; }
+.attendance-day.absent, .attendance-day.missing { background: #fff0f0; border-color: #edbaba; }
+.attendance-day.leave { background: #edf4ff; border-color: #bfd3ef; }
+.attendance-day.off { background: #f0f1f2; }
+.attendance-day.hot { background: #f7edff; border-color: #d9bde8; }
+.attendance-day.today { box-shadow: inset 0 0 0 2px #218c4b; }
+.attendance-day-num { font-weight: 800; font-size: 12px; margin-bottom: 4px; }
+
+@media (max-width: 560px) {
+  .attendance-stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 .emp-group ul {
   margin: 0;
   padding-left: 20px;
@@ -748,7 +831,7 @@ function renderManagerPortal(name) {
       <small>ดูข้อมูลและสิทธิ์ลาของตัวเอง</small>
       </button>
       
-      <button class="btn" onclick="openPage('hrDashboard')">
+      <button class="btn" onclick="renderAttendanceCenter()">
       ทีมงานวันนี้
       <small>ดูคนเข้างาน / พัก / ออกงาน</small>
       </button>
@@ -802,7 +885,7 @@ function renderAdminPortal(name) {
       <small>ภาพรวม HR รายวัน</small>
       </button>
 
-      <button class="btn" onclick="openPage('dashboard')">
+      <button class="btn" onclick="renderAttendanceCenter()">
       ข้อมูลการเข้างาน
       <small>รูปแบบปฏิทินรายคน</small>
       </button>
@@ -3160,6 +3243,272 @@ function schedulePeriodRange(date) {
 
 function employeeDateInput(date) {
   return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+}
+
+// ==========================================================
+// Attendance Center - รายวันและรายงวดใน Admin Center
+// ==========================================================
+
+const attendanceCenterState = {
+  mode: 'daily',
+  dailyDate: '',
+  dailyResult: null,
+  branches: [],
+  periods: [],
+  periodResult: null
+};
+
+async function renderAttendanceCenter() {
+  attendanceCenterState.mode = 'daily';
+  attendanceCenterState.dailyDate = employeeTodayText();
+  document.getElementById('app').innerHTML = '<div class="loading">กำลังโหลดข้อมูลการเข้างาน...</div>';
+
+  try {
+    const results = await Promise.all([
+      callApi({ action: 'getHrAttendanceDailySummary', line_uid: lineUid, date: attendanceCenterState.dailyDate }),
+      callApi({ action: 'getHrAttendancePeriodFilterOptions', line_uid: lineUid })
+    ]);
+    if (!results[0].success) throw new Error(results[0].message || 'โหลดข้อมูลรายวันไม่สำเร็จ');
+    if (!results[1].success) throw new Error(results[1].message || 'โหลดตัวกรองไม่สำเร็จ');
+
+    attendanceCenterState.dailyResult = results[0];
+    attendanceCenterState.branches = results[1].branches || [];
+    attendanceCenterState.periods = results[1].periods || [];
+    drawAttendanceCenter();
+  } catch (err) {
+    document.getElementById('app').innerHTML = `
+      <div class="section"><div class="title">โหลดข้อมูลไม่สำเร็จ</div>
+      <div class="sub">${employeeEscape(err.message || err)}</div>
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button></div>`;
+  }
+}
+
+function drawAttendanceCenter() {
+  const mode = attendanceCenterState.mode;
+  document.getElementById('app').innerHTML = `
+    <div class="header">
+      <div><div class="title">ข้อมูลการเข้างาน</div><div class="sub">ดูภาพรวมรายวันและปฏิทินรายงวด</div></div>
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    </div>
+    <div class="section">
+      <div class="employee-tabs" style="grid-template-columns:1fr 1fr">
+        <button class="employee-tab ${mode === 'daily' ? 'active' : ''}" onclick="setAttendanceCenterMode('daily')">รายวัน</button>
+        <button class="employee-tab ${mode === 'period' ? 'active' : ''}" onclick="setAttendanceCenterMode('period')">รายงวด</button>
+      </div>
+      ${mode === 'daily' ? renderAttendanceDailyControls() : renderAttendancePeriodControls()}
+      <div id="attendanceCenterResult">
+        ${mode === 'daily'
+          ? renderAttendanceDailyResult(attendanceCenterState.dailyResult)
+          : renderAttendancePeriodResult(attendanceCenterState.periodResult)}
+      </div>
+    </div>`;
+}
+
+function setAttendanceCenterMode(mode) {
+  attendanceCenterState.mode = mode;
+  drawAttendanceCenter();
+}
+
+function renderAttendanceDailyControls() {
+  return `
+    <div class="employee-toolbar">
+      <input id="attendanceDailyDate" class="employee-input" type="date" value="${employeeEscape(attendanceCenterState.dailyDate)}">
+      <button class="btn-save" onclick="loadAttendanceDailyInAdmin()">แสดงข้อมูล</button>
+    </div>`;
+}
+
+function renderAttendancePeriodControls() {
+  const branchOptions = attendanceCenterState.branches.map(function(branch) {
+    return `<option value="${employeeEscape(branch.branch_id)}">${employeeEscape(branch.branch_name || branch.branch_id)}</option>`;
+  }).join('');
+  const periodOptions = attendanceCenterState.periods.map(function(period) {
+    return `<option value="${employeeEscape(period.payroll_period)}">${employeeEscape(period.display_text)}</option>`;
+  }).join('');
+  return `
+    <div class="employee-form-grid">
+      <div><label>สาขา</label><select id="attendancePeriodBranch" class="employee-input"><option value="">เลือกสาขา</option>${branchOptions}</select></div>
+      <div><label>รอบวันที่</label><select id="attendancePeriodValue" class="employee-input">${periodOptions}</select></div>
+    </div>
+    <button class="btn-save" onclick="loadAttendancePeriodInAdmin()">แสดงข้อมูลรายงวด</button>`;
+}
+
+async function loadAttendanceDailyInAdmin() {
+  const date = document.getElementById('attendanceDailyDate').value;
+  if (!date) return alert('กรุณาเลือกวันที่');
+  attendanceCenterState.dailyDate = date;
+  document.getElementById('attendanceCenterResult').innerHTML = '<div class="loading">กำลังโหลดข้อมูล...</div>';
+  try {
+    const res = await callApi({ action: 'getHrAttendanceDailySummary', line_uid: lineUid, date: date });
+    if (!res.success) return alert(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+    attendanceCenterState.dailyResult = res;
+    document.getElementById('attendanceCenterResult').innerHTML = renderAttendanceDailyResult(res);
+  } catch (err) {
+    alert(err.message || err);
+  }
+}
+
+function renderAttendanceDailyResult(res) {
+  if (!res) return '<div class="empty">เลือกวันที่แล้วกดแสดงข้อมูล</div>';
+  const rows = res.rows || [];
+  if (!rows.length) return '<div class="empty">ยังไม่มีข้อมูลสรุปในวันที่เลือก</div>';
+
+  return `
+    <div class="sub" style="margin:12px 0">${employeeEscape(formatDate(res.date))} · มีตารางงาน ${rows.length} สาขา</div>
+    ${rows.map(function(row) {
+      return `
+        <div class="attendance-branch-card">
+          <div class="approval-name">${employeeEscape(row.branch_name || row.branch_id)}</div>
+          <div class="approval-meta">${employeeEscape(row.branch_id || '')}</div>
+          <div class="attendance-stat-grid">
+            ${attendanceStat(row.total, 'ทั้งหมด', '')}
+            ${attendanceStat(row.present, 'มาทำงาน', '')}
+            ${attendanceStat(row.late, 'มาสาย', 'warn')}
+            ${attendanceStat(row.absent, 'ขาดงาน', 'danger')}
+            ${attendanceStat(row.leave, 'ลา', 'info')}
+            ${attendanceStat(row.off, 'หยุด', 'info')}
+            ${attendanceStat(row.hot, 'ได้ HOT', 'warn')}
+          </div>
+        </div>`;
+    }).join('')}`;
+}
+
+function attendanceStat(value, label, className) {
+  return `<div class="attendance-stat ${className || ''}"><b>${Number(value || 0)}</b><small>${employeeEscape(label)}</small></div>`;
+}
+
+async function loadAttendancePeriodInAdmin() {
+  const branchId = document.getElementById('attendancePeriodBranch').value;
+  const payrollPeriod = document.getElementById('attendancePeriodValue').value;
+  if (!branchId) return alert('กรุณาเลือกสาขา');
+  if (!payrollPeriod) return alert('กรุณาเลือกรอบวันที่');
+
+  document.getElementById('attendanceCenterResult').innerHTML = '<div class="loading">กำลังโหลดข้อมูลรายงวด...</div>';
+  try {
+    const res = await callApi({
+      action: 'getHrAttendancePeriodCalendars',
+      line_uid: lineUid,
+      branch_id: branchId,
+      payroll_period: payrollPeriod
+    });
+    if (!res.success) return alert(res.message || 'โหลดข้อมูลไม่สำเร็จ');
+    attendanceCenterState.periodResult = res;
+    document.getElementById('attendanceCenterResult').innerHTML = renderAttendancePeriodResult(res);
+  } catch (err) {
+    alert(err.message || err);
+  }
+}
+
+function renderAttendancePeriodResult(res) {
+  if (!res) return '<div class="empty">เลือกสาขาและรอบวันที่แล้วกดแสดงข้อมูล</div>';
+  const employees = res.employees || [];
+  if (!employees.length) return '<div class="empty">ไม่พบพนักงานในสาขาและรอบที่เลือก</div>';
+
+  return `
+    <div class="sub" style="margin:14px 0">
+      <b>${employeeEscape(res.branch_name || res.branch_id || '')}</b><br>
+      รอบ ${employeeEscape(res.period_display || '')} · ${employees.length} คน
+    </div>
+    ${employees.map(function(employee) {
+      return renderAttendanceEmployeeCalendar(employee, res.range_start, res.range_end);
+    }).join('')}`;
+}
+
+function renderAttendanceEmployeeCalendar(employee, rangeStart, rangeEnd) {
+  const summary = employee.summary || {};
+  const dailyMap = buildAttendanceDailyMap(employee.rows || []);
+  return `
+    <details class="attendance-employee">
+      <summary>
+        <div class="approval-name">${employeeEscape(employee.nickname || employee.employee_name || '-')}</div>
+        <div class="approval-meta">${employeeEscape(employee.employee_code || '')} · ${employeeEscape(employee.position || '')}</div>
+        <div class="attendance-stat-grid">
+          ${attendanceStat(summary.late_count, 'มาสาย ' + Number(summary.late_minutes || 0) + ' นาที', 'warn')}
+          ${attendanceStat(summary.ot_hours || '0.00', 'OT ชั่วโมง', '')}
+          ${attendanceStat(summary.absent_count, 'ขาดงาน', 'danger')}
+          ${attendanceStat(summary.leave_count, 'ลา', 'info')}
+        </div>
+      </summary>
+      <div class="attendance-calendar-wrap">
+        ${buildAttendanceCalendar(rangeStart, rangeEnd, dailyMap, summary.by_date || {})}
+      </div>
+    </details>`;
+}
+
+function buildAttendanceDailyMap(rows) {
+  const map = {};
+  rows.forEach(function(row) {
+    const dateText = String(row.date || '').trim();
+    if (!dateText) return;
+    if (!map[dateText]) map[dateText] = { check_in: '', check_out: '' };
+    if (row.check_type === 'CHECK_IN' && (!map[dateText].check_in || new Date(row.datetime) < new Date(map[dateText].check_in))) {
+      map[dateText].check_in = row.datetime;
+    }
+    if (row.check_type === 'CHECK_OUT' && (!map[dateText].check_out || new Date(row.datetime) > new Date(map[dateText].check_out))) {
+      map[dateText].check_out = row.datetime;
+    }
+  });
+  return map;
+}
+
+function buildAttendanceCalendar(startText, endText, dailyMap, summaryMap) {
+  const start = attendanceParseDate(startText);
+  const end = attendanceParseDate(endText);
+  if (!start || !end) return '<div class="error">รูปแบบวันที่ไม่ถูกต้อง</div>';
+
+  const heads = ['จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์','อาทิตย์'];
+  let html = '<div class="attendance-calendar">' + heads.map(function(head) {
+    return `<div class="attendance-day-head">${head}</div>`;
+  }).join('');
+
+  const current = new Date(start);
+  const offset = current.getDay() === 0 ? 6 : current.getDay() - 1;
+  for (let i = 0; i < offset; i++) html += '<div class="attendance-day empty"></div>';
+
+  const today = employeeTodayText();
+  while (current <= end) {
+    const dateText = employeeDateInput(current);
+    const dayData = dailyMap[dateText] || {};
+    const daySummary = summaryMap[dateText] || {};
+    const status = String(daySummary.attendance_status || '').trim().toUpperCase();
+    const lateMinutes = Number(daySummary.late_minutes || 0);
+    let className = '';
+    let content = '';
+
+    if (status === 'OFF') { className = 'off'; content = '<b>หยุด</b>'; }
+    else if (status === 'HOT') { className = 'hot'; content = '<b>HOT</b>'; }
+    else if (['LEAVE','SICK','VACATION'].indexOf(status) !== -1) { className = 'leave'; content = '<b>ลา</b>'; }
+    else if (status === 'ABSENT') { className = 'absent'; content = '<b>ขาด</b>'; }
+    else if (dayData.check_in) {
+      className = !dayData.check_out ? 'missing' : (lateMinutes > 0 ? 'late' : 'present');
+      content = 'เข้า ' + employeeEscape(attendanceFormatTime(dayData.check_in));
+      if (dayData.check_out) content += '<br>ออก ' + employeeEscape(attendanceFormatTime(dayData.check_out));
+      if (lateMinutes > 0) content += '<br>สาย ' + lateMinutes + ' นาที';
+      if (!dayData.check_out) content += '<br>ไม่มีเวลาออก';
+    }
+    if (dateText === today) className += ' today';
+    html += `<div class="attendance-day ${className}"><div class="attendance-day-num">${current.getDate()}</div>${content}</div>`;
+    current.setDate(current.getDate() + 1);
+  }
+
+  const trailing = current.getDay() === 1 ? 0 : (current.getDay() === 0 ? 1 : 8 - current.getDay());
+  for (let i = 0; i < trailing; i++) html += '<div class="attendance-day empty"></div>';
+  return html + '</div>';
+}
+
+function attendanceParseDate(value) {
+  if (!value) return null;
+  const match = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0)
+    : new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function attendanceFormatTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return String(value);
+  return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 </script>
