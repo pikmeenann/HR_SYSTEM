@@ -214,6 +214,117 @@
   margin-bottom: 4px;
 }
 
+.employee-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.employee-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.employee-tab {
+  border: 1px solid #d7e6dc;
+  background: #fff;
+  color: #31533d;
+  border-radius: 12px;
+  padding: 10px 8px;
+  font-weight: 700;
+}
+
+.employee-tab.active {
+  border-color: #218c4b;
+  background: #eaf7ef;
+  color: #146b36;
+}
+
+.employee-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  margin-bottom: 10px;
+  background: #fff;
+  border: 1px solid #e2ebe5;
+  border-radius: 14px;
+}
+
+.employee-row-main { min-width: 0; }
+.employee-row-name { font-weight: 800; color: #203d2a; }
+.employee-row-meta { margin-top: 4px; font-size: 13px; color: #6a7d70; }
+
+.employee-status {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  background: #eaf7ef;
+  color: #16723a;
+}
+
+.employee-status.resigned {
+  background: #f6eaea;
+  color: #9a3030;
+}
+
+.employee-form {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #e0e9e3;
+  background: #f8fbf9;
+  border-radius: 14px;
+}
+
+.employee-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.employee-form label {
+  display: block;
+  margin: 8px 0 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #395343;
+}
+
+.employee-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cfdcd3;
+  border-radius: 10px;
+  padding: 11px;
+  background: #fff;
+  font: inherit;
+}
+
+.employee-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.employee-danger {
+  background: #fff1f1;
+  color: #9d2626;
+  border: 1px solid #efcaca;
+}
+
+@media (max-width: 560px) {
+  .employee-toolbar,
+  .employee-form-grid,
+  .employee-actions { grid-template-columns: 1fr; }
+}
+
 .emp-group ul {
   margin: 0;
   padding-left: 20px;
@@ -609,7 +720,7 @@ function renderManagerPortal(name) {
       <small>ดูคนเข้างาน / พัก / ออกงาน</small>
       </button>
 
-      <button class="btn" onclick="openPage('employeeList')">
+      <button class="btn" onclick="renderEmployeeManagementCenter()">
       รายชื่อพนักงาน
       <small>ดูพนักงานในสาขา</small>
       </button>
@@ -670,7 +781,7 @@ function renderAdminPortal(name) {
       <div class="section-title">👥 พนักงาน</div>
       <div class="grid">
       
-      <button class="btn" onclick="openPage('employeeList')">
+      <button class="btn" onclick="renderEmployeeManagementCenter()">
       รายชื่อพนักงาน
       <small>ดูข้อมูลพนักงานทั้งหมด</small>
       </button>
@@ -1137,6 +1248,7 @@ async function submitEmployeeAdvance() {
     branch_id: document.getElementById('advanceBranchId').value.trim(),
     request_date: parseDdMmYyyyToIso(document.getElementById('advanceRequestDate').value),
     payroll_period: document.getElementById('advancePayrollPeriod').value.trim(),
+    loan_type: 'ADVANCE',
     advance_amount: document.getElementById('advanceAmount').value,
     deduct_mode: mode,
     deduct_period_count: mode === 'CUSTOM'
@@ -1154,7 +1266,7 @@ async function submitEmployeeAdvance() {
   if (!data.advance_amount) return alert('กรุณากรอกจำนวนเงินที่เบิก');
 
   const res = await callApi({
-    action: 'saveEmployeeAdvance',
+    action: 'saveEmployeeLoan',
     data: data
   });
 
@@ -2322,6 +2434,325 @@ function renderAttendanceTimesheetExportResult(res) {
     
     
   main();
+// ==========================================================
+// Employee Management Center - รวมงานพนักงานไว้ใน admin หน้าเดียว
+// ==========================================================
+
+const employeeCenterState = {
+  employees: [],
+  branches: [],
+  filter: 'ACTIVE',
+  search: '',
+  selectedCode: '',
+  canManage: false
+};
+
+function employeeEscape(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function employeeTodayText() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return year + '-' + month + '-' + day;
+}
+
+async function renderEmployeeManagementCenter() {
+  const app = document.getElementById('app');
+  app.innerHTML = '<div class="loading">กำลังโหลดศูนย์จัดการพนักงาน...</div>';
+
+  try {
+    const res = await callApi({
+      action: 'getEmployeeManagementList',
+      line_uid: lineUid,
+      status_filter: 'ALL'
+    });
+
+    if (!res.success) {
+      alert(res.message || 'โหลดข้อมูลพนักงานไม่สำเร็จ');
+      loadUserAndRenderPortal();
+      return;
+    }
+
+    employeeCenterState.employees = res.employees || [];
+    employeeCenterState.branches = res.branches || [];
+    employeeCenterState.canManage = res.can_manage === true;
+    employeeCenterState.selectedCode = '';
+    drawEmployeeManagementCenter();
+  } catch (err) {
+    app.innerHTML = `
+      <div class="section">
+        <div class="title">โหลดข้อมูลไม่สำเร็จ</div>
+        <div class="sub">${employeeEscape(err.message || err)}</div>
+        <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+      </div>`;
+  }
+}
+
+function drawEmployeeManagementCenter() {
+  const app = document.getElementById('app');
+  const filter = employeeCenterState.filter;
+  const search = String(employeeCenterState.search || '').trim().toLowerCase();
+
+  const rows = employeeCenterState.employees.filter(function(emp) {
+    const isResigned = String(emp.employment_status || '').toUpperCase() === 'RESIGNED';
+    if (filter === 'ACTIVE' && String(emp.status || '').toUpperCase() !== 'ACTIVE') return false;
+    if (filter === 'RESIGNED' && !isResigned) return false;
+
+    if (!search) return true;
+    const haystack = [
+      emp.employee_code, emp.nickname, emp.first_name, emp.last_name,
+      emp.branch_id, emp.position
+    ].join(' ').toLowerCase();
+    return haystack.indexOf(search) !== -1;
+  });
+
+  const activeCount = employeeCenterState.employees.filter(function(emp) {
+    return String(emp.status || '').toUpperCase() === 'ACTIVE';
+  }).length;
+  const resignedCount = employeeCenterState.employees.filter(function(emp) {
+    return String(emp.employment_status || '').toUpperCase() === 'RESIGNED';
+  }).length;
+
+  app.innerHTML = `
+    <div class="header">
+      <div>
+        <div class="title">ศูนย์จัดการพนักงาน</div>
+        <div class="sub">แก้ข้อมูลปัจจุบันจาก Employee_Master จุดเดียว</div>
+      </div>
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    </div>
+
+    <div class="section">
+      <div class="employee-tabs">
+        <button class="employee-tab ${filter === 'ACTIVE' ? 'active' : ''}"
+          onclick="setEmployeeCenterFilter('ACTIVE')">ทำงานอยู่ ${activeCount}</button>
+        ${employeeCenterState.canManage ? `<button class="employee-tab ${filter === 'RESIGNED' ? 'active' : ''}"
+          onclick="setEmployeeCenterFilter('RESIGNED')">ลาออก ${resignedCount}</button>
+        <button class="employee-tab" onclick="openPage('employeeApprove')">รออนุมัติ</button>` : '<span></span><span></span>'}
+      </div>
+
+      <div class="employee-toolbar">
+        <input id="employeeCenterSearch" class="employee-input"
+          value="${employeeEscape(employeeCenterState.search)}"
+          placeholder="ค้นหาชื่อ รหัส หรือสาขา"
+          oninput="updateEmployeeCenterSearch(this.value)">
+        <button class="btn-back" onclick="renderEmployeeManagementCenter()">รีเฟรช</button>
+      </div>
+
+      <div id="employeeCenterList">
+        ${renderEmployeeCenterRows(rows)}
+      </div>
+    </div>`;
+}
+
+function renderEmployeeCenterRows(rows) {
+  if (!rows.length) {
+    return '<div class="empty">ไม่พบพนักงานตามเงื่อนไข</div>';
+  }
+
+  return rows.map(function(emp) {
+    const fullName = [emp.first_name, emp.last_name].filter(Boolean).join(' ');
+    const isResigned = String(emp.employment_status || '').toUpperCase() === 'RESIGNED';
+    return `
+      <button class="employee-row" style="width:100%;text-align:left;cursor:pointer"
+        onclick="openEmployeeManagementDetail('${employeeEscape(emp.employee_code)}')">
+        <span class="employee-row-main">
+          <span class="employee-row-name">${employeeEscape(emp.nickname || fullName || emp.employee_code)}</span>
+          <span class="employee-row-meta" style="display:block">
+            ${employeeEscape(emp.employee_code)} · ${employeeEscape(fullName || '-')}
+            <br>${employeeEscape(emp.branch_id || '-')} · ${employeeEscape(emp.position || '-')}
+          </span>
+        </span>
+        <span class="employee-status ${isResigned ? 'resigned' : ''}">
+          ${isResigned ? 'ลาออก' : 'ใช้งาน'}
+        </span>
+      </button>`;
+  }).join('');
+}
+
+function setEmployeeCenterFilter(filter) {
+  employeeCenterState.filter = filter;
+  employeeCenterState.selectedCode = '';
+  drawEmployeeManagementCenter();
+}
+
+function updateEmployeeCenterSearch(value) {
+  employeeCenterState.search = value || '';
+  const list = document.getElementById('employeeCenterList');
+  if (!list) return;
+
+  const search = String(employeeCenterState.search || '').trim().toLowerCase();
+  const filter = employeeCenterState.filter;
+  const rows = employeeCenterState.employees.filter(function(emp) {
+    const isResigned = String(emp.employment_status || '').toUpperCase() === 'RESIGNED';
+    if (filter === 'ACTIVE' && String(emp.status || '').toUpperCase() !== 'ACTIVE') return false;
+    if (filter === 'RESIGNED' && !isResigned) return false;
+    if (!search) return true;
+    return [emp.employee_code, emp.nickname, emp.first_name, emp.last_name, emp.branch_id, emp.position]
+      .join(' ').toLowerCase().indexOf(search) !== -1;
+  });
+  list.innerHTML = renderEmployeeCenterRows(rows);
+}
+
+function employeeBranchOptions(selectedBranch) {
+  return employeeCenterState.branches.map(function(branch) {
+    const selected = String(branch.branch_id) === String(selectedBranch || '') ? ' selected' : '';
+    return `<option value="${employeeEscape(branch.branch_id)}"${selected}>${employeeEscape(branch.branch_id)} | ${employeeEscape(branch.branch_name)}</option>`;
+  }).join('');
+}
+
+function openEmployeeManagementDetail(employeeCode) {
+  const emp = employeeCenterState.employees.find(function(item) {
+    return String(item.employee_code) === String(employeeCode);
+  });
+  if (!emp) return alert('ไม่พบข้อมูลพนักงาน');
+
+  employeeCenterState.selectedCode = employeeCode;
+  const isResigned = String(emp.employment_status || '').toUpperCase() === 'RESIGNED';
+  const fullName = [emp.first_name, emp.last_name].filter(Boolean).join(' ');
+  const app = document.getElementById('app');
+
+  app.innerHTML = `
+    <div class="header">
+      <div>
+        <div class="title">${employeeEscape(emp.nickname || fullName || emp.employee_code)}</div>
+        <div class="sub">${employeeEscape(emp.employee_code)} · ${employeeEscape(fullName || '-')}</div>
+      </div>
+      <button class="btn-back" onclick="drawEmployeeManagementCenter()">กลับรายชื่อ</button>
+    </div>
+
+    <div class="section">
+      <div class="summary-row">
+        <span>สาขาประจำ: <b>${employeeEscape(emp.branch_id || '-')}</b></span>
+        <span>ตำแหน่ง: <b>${employeeEscape(emp.position || '-')}</b></span>
+        <span>สิทธิ์: <b>${employeeEscape(emp.role || '-')}</b></span>
+        <span class="employee-status ${isResigned ? 'resigned' : ''}">${isResigned ? 'ลาออกแล้ว' : 'กำลังทำงาน'}</span>
+      </div>
+
+      ${employeeCenterState.canManage
+        ? (isResigned ? renderEmployeeReactivateForm(emp) : renderActiveEmployeeActions(emp))
+        : '<div class="sub" style="margin-top:14px">Manager สามารถดูรายชื่อได้ แต่การเปลี่ยนสาขาและสถานะพนักงานต้องดำเนินการโดย HR หรือ OWNER</div>'}
+    </div>`;
+}
+
+function renderActiveEmployeeActions(emp) {
+  return `
+    <div class="employee-actions">
+      <button class="btn" onclick="toggleEmployeeForm('permanentBranchForm')">เปลี่ยนสาขาถาวร</button>
+      <button class="btn" onclick="toggleEmployeeForm('temporaryBranchForm')">ไปช่วยสาขาชั่วคราว</button>
+    </div>
+
+    <div id="permanentBranchForm" class="employee-form" style="display:none">
+      <div class="section-title">เปลี่ยนสาขาประจำถาวร</div>
+      <div class="employee-form-grid">
+        <div><label>สาขาใหม่</label><select id="permanentBranchId" class="employee-input">${employeeBranchOptions(emp.branch_id)}</select></div>
+        <div><label>วันที่มีผล</label><input id="permanentBranchDate" class="employee-input" type="date" value="${employeeTodayText()}"></div>
+      </div>
+      <label>หมายเหตุ</label><input id="permanentBranchNote" class="employee-input" placeholder="เช่น ย้ายประจำตามคำสั่งบริษัท">
+      <button class="btn-save" onclick="submitPermanentBranchChange('${employeeEscape(emp.employee_code)}')">ยืนยันเปลี่ยนสาขา</button>
+    </div>
+
+    <div id="temporaryBranchForm" class="employee-form" style="display:none">
+      <div class="section-title">ส่งไปช่วยสาขาชั่วคราว</div>
+      <div class="employee-form-grid">
+        <div><label>สาขาที่ไปช่วย</label><select id="temporaryBranchId" class="employee-input">${employeeBranchOptions('')}</select></div>
+        <div><label>วันที่เริ่ม</label><input id="temporaryStartDate" class="employee-input" type="date" value="${employeeTodayText()}"></div>
+        <div><label>วันที่สิ้นสุด</label><input id="temporaryEndDate" class="employee-input" type="date" value="${employeeTodayText()}"></div>
+      </div>
+      <label>หมายเหตุ</label><input id="temporaryBranchNote" class="employee-input" placeholder="เช่น ไปช่วยแทนพนักงานลา">
+      <button class="btn-save" onclick="submitTemporaryBranchAssignment('${employeeEscape(emp.employee_code)}')">บันทึกการไปช่วย</button>
+    </div>
+
+    <div class="employee-form">
+      <div class="section-title" style="color:#9d2626">ยุติการทำงาน</div>
+      <div class="employee-form-grid">
+        <div><label>วันทำงานวันสุดท้าย</label><input id="employeeResignDate" class="employee-input" type="date" value="${employeeTodayText()}"></div>
+        <div><label>เหตุผล</label><input id="employeeResignReason" class="employee-input" placeholder="เช่น ลาออกเอง"></div>
+      </div>
+      <div class="sub" style="margin:8px 0">เมื่อยืนยัน ระบบจะปิดสิทธิ์ใช้งานทันทีและเก็บประวัติเดิมทั้งหมด</div>
+      <button class="btn-back employee-danger" onclick="submitEmployeeResign('${employeeEscape(emp.employee_code)}')">บันทึกลาออกและปิดสิทธิ์</button>
+    </div>`;
+}
+
+function renderEmployeeReactivateForm(emp) {
+  return `
+    <div class="employee-form">
+      <div class="section-title">เปิดใช้งานกลับเข้าทำงาน</div>
+      <label>สาขาประจำ</label>
+      <select id="reactivateBranchId" class="employee-input">${employeeBranchOptions(emp.branch_id)}</select>
+      <label>หมายเหตุ</label>
+      <input id="reactivateNote" class="employee-input" placeholder="เช่น กลับเข้าทำงานใหม่">
+      <button class="btn-save" onclick="submitEmployeeReactivate('${employeeEscape(emp.employee_code)}')">เปิดใช้งานพนักงาน</button>
+    </div>`;
+}
+
+function toggleEmployeeForm(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function submitPermanentBranchChange(employeeCode) {
+  const branchId = document.getElementById('permanentBranchId').value;
+  const effectiveDate = document.getElementById('permanentBranchDate').value;
+  const note = document.getElementById('permanentBranchNote').value;
+  if (!confirm('ยืนยันเปลี่ยนสาขาประจำเป็น ' + branchId + '?')) return;
+  await submitEmployeeCenterAction('changeEmployeePermanentBranch', {
+    line_uid: lineUid, employee_code: employeeCode, branch_id: branchId,
+    effective_date: effectiveDate, note: note
+  });
+}
+
+async function submitTemporaryBranchAssignment(employeeCode) {
+  const branchId = document.getElementById('temporaryBranchId').value;
+  const startDate = document.getElementById('temporaryStartDate').value;
+  const endDate = document.getElementById('temporaryEndDate').value;
+  const note = document.getElementById('temporaryBranchNote').value;
+  if (!confirm('ยืนยันส่งพนักงานไปช่วย ' + branchId + ' ตั้งแต่ ' + startDate + ' ถึง ' + endDate + '?')) return;
+  await submitEmployeeCenterAction('createTemporaryBranchAssignment', {
+    line_uid: lineUid, employee_code: employeeCode, branch_id: branchId,
+    start_date: startDate, end_date: endDate, note: note
+  });
+}
+
+async function submitEmployeeResign(employeeCode) {
+  const resignDate = document.getElementById('employeeResignDate').value;
+  const resignReason = document.getElementById('employeeResignReason').value.trim();
+  if (!resignReason) return alert('กรุณาระบุเหตุผลลาออก');
+  if (!confirm('ยืนยันบันทึกลาออกและปิดสิทธิ์ใช้งานทันที?')) return;
+  await submitEmployeeCenterAction('resignEmployee', {
+    line_uid: lineUid, employee_code: employeeCode,
+    resign_date: resignDate, resign_reason: resignReason
+  });
+}
+
+async function submitEmployeeReactivate(employeeCode) {
+  const branchId = document.getElementById('reactivateBranchId').value;
+  const note = document.getElementById('reactivateNote').value;
+  if (!confirm('ยืนยันเปิดใช้งานพนักงานที่สาขา ' + branchId + '?')) return;
+  await submitEmployeeCenterAction('reactivateEmployee', {
+    line_uid: lineUid, employee_code: employeeCode, branch_id: branchId, note: note
+  });
+}
+
+async function submitEmployeeCenterAction(action, data) {
+  try {
+    const res = await callApi({ action: action, data: data });
+    if (!res.success) return alert(res.message || 'บันทึกไม่สำเร็จ');
+    alert(res.message || 'บันทึกเรียบร้อยแล้ว');
+    await renderEmployeeManagementCenter();
+  } catch (err) {
+    alert(err.message || err);
+  }
+}
+
 </script>
   
 </body>
