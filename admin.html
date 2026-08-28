@@ -483,14 +483,7 @@ let lineUid = '';
     'https://script.google.com/macros/s/AKfycbzzm6lTF7aMi0ufzas0KV9l6g_ab-_UqCEHFvxe23l3R4DgLMDUDig60HssQg5WqGCN0A/exec';
 
   const URLS = {
-    hrDashboard: 'https://liff.line.me/2010317944-JT6WkNZ4',
-    dashboard: 'https://pikmeenann.github.io/HR_SYSTEM/hr_attendance_dashboard.html',
-    employeeApprove: 'https://liff.line.me/2010317944-CjJMkJ3I',
-    employeeList: 'https://liff.line.me/2010317944-Nwoclupm',
-    employeeDetail: 'https://liff.line.me/2010317944-Iu21jArf',
-    scheduleAdmin: 'https://liff.line.me/2010317944-Gkh7the0',
-    leaveApprove: 'https://liff.line.me/2010317944-6koLiYjX',
-    profile: 'https://liff.line.me/2010317944-KmmsVa0F'
+    profile: 'https://liff.line.me/2010317944-48vTQqDt?page=profile'
   };
 
 const HR_BRANCH_ORDER = [
@@ -798,11 +791,13 @@ function renderPortalByRole(user) {
 
   if (role === 'MANAGER') {
     renderManagerPortal(name);
+    openAdminStartPage(role);
     return;
   }
 
   if (role === 'OWNER' || role === 'HR') {
     renderAdminPortal(name);
+    openAdminStartPage(role);
     return;
   }
 
@@ -813,6 +808,33 @@ function renderPortalByRole(user) {
 
   showError('คุณไม่มีสิทธิ์ใช้งานหน้านี้');
   }
+
+function getAdminStartPage() {
+  const params = new URLSearchParams(window.location.search);
+  return String(params.get('page') || 'home').trim().toLowerCase();
+}
+
+function openAdminStartPage(role) {
+  const page = getAdminStartPage();
+  if (page === 'home') return;
+
+  const routes = {
+    employees: function() { return renderEmployeeManagementCenter(); },
+    approvalemployee: function() { return renderApprovalCenter('employee'); },
+    approvalleave: function() { return renderApprovalCenter('leave'); },
+    schedule: function() { return renderScheduleCenter(); },
+    attendance: function() { return renderAttendanceCenter(); },
+    documents: function() { return renderDocumentCenter(); },
+    audit: function() { return renderAuditLogViewer(); }
+  };
+
+  if (role === 'MANAGER' && ['documents', 'audit'].indexOf(page) !== -1) {
+    showError('คุณไม่มีสิทธิ์เปิดเมนูนี้');
+    return;
+  }
+
+  if (routes[page]) routes[page]();
+}
 
     
 function renderManagerPortal(name) {
