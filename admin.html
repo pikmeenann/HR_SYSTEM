@@ -325,6 +325,39 @@
   .employee-actions { grid-template-columns: 1fr; }
 }
 
+.approval-card {
+  padding: 15px;
+  margin-bottom: 11px;
+  border: 1px solid #e0e9e3;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.approval-name { font-weight: 800; color: #203d2a; }
+.approval-meta { margin-top: 6px; color: #66776b; font-size: 13px; line-height: 1.55; }
+.approval-reason { margin-top: 10px; padding: 10px; border-radius: 10px; background: #f6f8f6; }
+.approval-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 12px; }
+.btn-approve { background: #218c4b; color: #fff; }
+.btn-reject { background: #fff1f1; color: #9d2626; border: 1px solid #efcaca; }
+
+.schedule-days {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.schedule-day {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid #dbe6de;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+}
+
 .emp-group ul {
   margin: 0;
   padding-left: 20px;
@@ -732,17 +765,17 @@ function renderManagerPortal(name) {
       <div class="section-title">งานที่ต้องจัดการ</div>
       <div class="grid">
       
-      <button class="btn" onclick="openPage('leaveApprove')">
+      <button class="btn" onclick="renderApprovalCenter('leave')">
       อนุมัติใบลา
       <small>ตรวจคำขอลาของทีม</small>
       </button>
 
-      <button class="btn" onclick="openPage('employeeApprove')">
+      <button class="btn" onclick="renderApprovalCenter('employee')">
       อนุมัติพนักงาน
       <small>อนุมัติคนสมัครใหม่</small>
       </button>
 
-      <button class="btn" onclick="openPage('scheduleAdmin')">
+      <button class="btn" onclick="renderScheduleCenter()">
       จัดตารางงาน
       <small>สร้าง / แก้ไขตารางทีม</small>
       </button>
@@ -786,7 +819,7 @@ function renderAdminPortal(name) {
       <small>ดูข้อมูลพนักงานทั้งหมด</small>
       </button>
 
-      <button class="btn" onclick="openPage('employeeApprove')">
+      <button class="btn" onclick="renderApprovalCenter('employee')">
       อนุมัติพนักงาน
       <small>อนุมัติคนสมัครใหม่</small>
       </button>
@@ -803,12 +836,12 @@ function renderAdminPortal(name) {
       <div class="section-title">📅 ตารางงาน / การลา</div>
       <div class="grid">
       
-      <button class="btn" onclick="openPage('scheduleAdmin')">
+      <button class="btn" onclick="renderScheduleCenter()">
       จัดตารางงาน
       <small>เพิ่ม / แก้ไขตารางงาน</small>
       </button>
 
-      <button class="btn" onclick="openPage('leaveApprove')">
+      <button class="btn" onclick="renderApprovalCenter('leave')">
       อนุมัติใบลา
       <small>ตรวจสอบคำขอลา</small>
       </button>
@@ -2536,7 +2569,7 @@ function drawEmployeeManagementCenter() {
           onclick="setEmployeeCenterFilter('ACTIVE')">ทำงานอยู่ ${activeCount}</button>
         ${employeeCenterState.canManage ? `<button class="employee-tab ${filter === 'RESIGNED' ? 'active' : ''}"
           onclick="setEmployeeCenterFilter('RESIGNED')">ลาออก ${resignedCount}</button>
-        <button class="employee-tab" onclick="openPage('employeeApprove')">รออนุมัติ</button>` : '<span></span><span></span>'}
+        <button class="employee-tab" onclick="renderApprovalCenter('employee')">รออนุมัติ</button>` : '<span></span><span></span>'}
       </div>
 
       <div class="employee-toolbar">
@@ -2751,6 +2784,382 @@ async function submitEmployeeCenterAction(action, data) {
   } catch (err) {
     alert(err.message || err);
   }
+}
+
+// ==========================================================
+// Approval Center - อนุมัติพนักงานและใบลาในหน้าเดียว
+// ==========================================================
+
+const approvalCenterState = {
+  employeeRows: [],
+  leaveRows: [],
+  activeTab: 'leave'
+};
+
+async function renderApprovalCenter(startTab) {
+  approvalCenterState.activeTab = startTab || 'leave';
+  document.getElementById('app').innerHTML = '<div class="loading">กำลังโหลดงานรออนุมัติ...</div>';
+
+  try {
+    const results = await Promise.all([
+      callApi({ action: 'getPendingEmployeeRegistrations', line_uid: lineUid }),
+      callApi({ action: 'getPendingLeaveRequests', line_uid: lineUid })
+    ]);
+
+    if (!results[0].success) throw new Error(results[0].message || 'โหลดคำขอพนักงานไม่สำเร็จ');
+    if (!results[1].success) throw new Error(results[1].message || 'โหลดใบลาไม่สำเร็จ');
+
+    approvalCenterState.employeeRows = results[0].rows || [];
+    approvalCenterState.leaveRows = results[1].requests || [];
+    drawApprovalCenter();
+  } catch (err) {
+    document.getElementById('app').innerHTML = `
+      <div class="section">
+        <div class="title">โหลดงานอนุมัติไม่สำเร็จ</div>
+        <div class="sub">${employeeEscape(err.message || err)}</div>
+        <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+      </div>`;
+  }
+}
+
+function drawApprovalCenter() {
+  const tab = approvalCenterState.activeTab;
+  const employeeCount = approvalCenterState.employeeRows.length;
+  const leaveCount = approvalCenterState.leaveRows.length;
+
+  document.getElementById('app').innerHTML = `
+    <div class="header">
+      <div>
+        <div class="title">งานรออนุมัติ</div>
+        <div class="sub">รวมคำขอพนักงานและใบลาไว้ในหน้าเดียว</div>
+      </div>
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    </div>
+
+    <div class="section">
+      <div class="employee-tabs" style="grid-template-columns:1fr 1fr">
+        <button class="employee-tab ${tab === 'leave' ? 'active' : ''}"
+          onclick="setApprovalCenterTab('leave')">ใบลา ${leaveCount}</button>
+        <button class="employee-tab ${tab === 'employee' ? 'active' : ''}"
+          onclick="setApprovalCenterTab('employee')">พนักงานใหม่ ${employeeCount}</button>
+      </div>
+      <div id="approvalCenterRows">
+        ${tab === 'employee'
+          ? renderPendingEmployeeCards(approvalCenterState.employeeRows)
+          : renderPendingLeaveCards(approvalCenterState.leaveRows)}
+      </div>
+    </div>`;
+}
+
+function setApprovalCenterTab(tab) {
+  approvalCenterState.activeTab = tab;
+  drawApprovalCenter();
+}
+
+function renderPendingEmployeeCards(rows) {
+  if (!rows.length) return '<div class="empty">ไม่มีพนักงานใหม่รออนุมัติ</div>';
+  return rows.map(function(row) {
+    const fullName = [row.first_name, row.last_name].filter(Boolean).join(' ');
+    return `
+      <div class="approval-card">
+        <div class="approval-name">${employeeEscape(row.nickname || fullName || '-')} · ${employeeEscape(row.home_branch_id || '-')}</div>
+        <div class="approval-meta">
+          ${employeeEscape(fullName || '-')}<br>
+          เบอร์: ${employeeEscape(row.phone || '-')}<br>
+          ประเภท: ${employeeEscape(row.employee_type || '-')} · ภาษา: ${employeeEscape(row.preferred_language || '-')}<br>
+          ตำแหน่ง: ${employeeEscape(row.position || '-')}<br>
+          สมัครเมื่อ: ${employeeEscape(formatDateTime(row.register_datetime))}
+        </div>
+        <div class="approval-buttons">
+          <button class="btn-save btn-approve" onclick="decideEmployeeRegistration('${employeeEscape(row.reg_id)}','APPROVED')">อนุมัติ</button>
+          <button class="btn-back btn-reject" onclick="decideEmployeeRegistration('${employeeEscape(row.reg_id)}','REJECTED')">ปฏิเสธ</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderPendingLeaveCards(rows) {
+  if (!rows.length) return '<div class="empty">ไม่มีใบลารออนุมัติ</div>';
+  return rows.map(function(row) {
+    const leaveNames = {
+      SICK: 'ลาป่วย', PERSONAL: 'ลากิจ', VACATION: 'ลาพักร้อน', OTHER: 'อื่นๆ',
+      ABSENT: 'ขาดงาน', MATERNITY: 'ลาคลอด', MILITARY: 'ลาเกณฑ์ทหาร',
+      STERILIZATION: 'ลาทำหมัน', FUNERAL: 'ลางานศพ'
+    };
+    return `
+      <div class="approval-card">
+        <div class="approval-name">${employeeEscape(row.nickname || row.employee_code || '-')}</div>
+        <div class="approval-meta">
+          ${employeeEscape(row.full_name || '')}<br>
+          ${employeeEscape(row.branch_id || '-')} · ${employeeEscape(leaveNames[row.leave_type] || row.leave_type || '-')} · ${employeeEscape(row.total_days || 0)} วัน<br>
+          วันที่ ${employeeEscape(formatDate(row.start_date))} ถึง ${employeeEscape(formatDate(row.end_date))}
+        </div>
+        <div class="approval-reason">เหตุผล: ${employeeEscape(row.reason || '-')}</div>
+        <div class="approval-buttons">
+          <button class="btn-save btn-approve" onclick="decideLeaveInAdmin('${employeeEscape(row.leave_id)}','APPROVED')">อนุมัติ</button>
+          <button class="btn-back btn-reject" onclick="decideLeaveInAdmin('${employeeEscape(row.leave_id)}','REJECTED')">ปฏิเสธ</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function decideEmployeeRegistration(regId, decision) {
+  let note = '';
+  if (decision === 'REJECTED') {
+    note = prompt('ระบุเหตุผลที่ปฏิเสธ') || '';
+    if (!note) return;
+  } else if (!confirm('ยืนยันอนุมัติพนักงานคนนี้?')) {
+    return;
+  }
+
+  try {
+    const res = decision === 'APPROVED'
+      ? await callApi({ action: 'approveEmployeeRegistrationByLiff', line_uid: lineUid, reg_id: regId })
+      : await callApi({ action: 'rejectEmployeeRegistrationByLiff', line_uid: lineUid, reg_id: regId, note: note });
+    if (!res.success) return alert(res.message || 'ทำรายการไม่สำเร็จ');
+    alert(res.message || 'บันทึกเรียบร้อยแล้ว');
+    await renderApprovalCenter('employee');
+  } catch (err) {
+    alert(err.message || err);
+  }
+}
+
+async function decideLeaveInAdmin(leaveId, decision) {
+  const label = decision === 'APPROVED' ? 'อนุมัติ' : 'ปฏิเสธ';
+  let note = label + 'ผ่าน Admin Center';
+  if (decision === 'REJECTED') {
+    const reason = prompt('ระบุเหตุผลที่ปฏิเสธใบลา');
+    if (reason === null || !String(reason).trim()) return;
+    note = String(reason).trim();
+  } else if (!confirm('ยืนยันอนุมัติใบลานี้?')) {
+    return;
+  }
+
+  try {
+    const res = await callApi({
+      action: 'approveLeaveRequest',
+      data: { line_uid: lineUid, leave_id: leaveId, decision: decision, note: note }
+    });
+    if (!res.success) return alert(res.message || 'ทำรายการไม่สำเร็จ');
+    alert(res.message || 'บันทึกเรียบร้อยแล้ว');
+    await renderApprovalCenter('leave');
+  } catch (err) {
+    alert(err.message || err);
+  }
+}
+
+// ==========================================================
+// Schedule Center - สร้างทั้งรอบและแก้รายวันใน admin หน้าเดียว
+// ==========================================================
+
+const scheduleCenterState = { data: null, mode: 'monthly' };
+
+async function renderScheduleCenter() {
+  document.getElementById('app').innerHTML = '<div class="loading">กำลังโหลดข้อมูลตารางงาน...</div>';
+  try {
+    const res = await callApi({ action: 'getScheduleAdminData', line_uid: lineUid });
+    if (!res.success) throw new Error(res.message || 'ไม่มีสิทธิ์จัดตารางงาน');
+    scheduleCenterState.data = res;
+    scheduleCenterState.mode = 'monthly';
+    drawScheduleCenter();
+  } catch (err) {
+    document.getElementById('app').innerHTML = `
+      <div class="section"><div class="title">โหลดตารางงานไม่สำเร็จ</div>
+      <div class="sub">${employeeEscape(err.message || err)}</div>
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button></div>`;
+  }
+}
+
+function drawScheduleCenter() {
+  const mode = scheduleCenterState.mode;
+  const data = scheduleCenterState.data || {};
+  document.getElementById('app').innerHTML = `
+    <div class="header">
+      <div><div class="title">จัดตารางงาน</div><div class="sub">สิทธิ์ ${employeeEscape(data.role || '-')} · ${employeeEscape(data.branch_id || 'ทุกสาขา')}</div></div>
+      <button class="btn-back" onclick="loadUserAndRenderPortal()">กลับ</button>
+    </div>
+    <div class="section">
+      <div class="employee-tabs" style="grid-template-columns:1fr 1fr">
+        <button class="employee-tab ${mode === 'monthly' ? 'active' : ''}" onclick="setScheduleCenterMode('monthly')">สร้างทั้งรอบ</button>
+        <button class="employee-tab ${mode === 'daily' ? 'active' : ''}" onclick="setScheduleCenterMode('daily')">แก้รายวัน</button>
+      </div>
+      ${mode === 'monthly' ? renderMonthlyScheduleForm() : renderDailyScheduleForm()}
+    </div>`;
+  if (mode === 'monthly') syncMonthlyShiftTimes();
+  if (mode === 'daily') syncDailyShiftTimes();
+}
+
+function setScheduleCenterMode(mode) {
+  scheduleCenterState.mode = mode;
+  drawScheduleCenter();
+}
+
+function scheduleEmployeeOptions() {
+  return (scheduleCenterState.data.employees || []).map(function(emp) {
+    return `<option value="${employeeEscape(emp.employee_code)}">${employeeEscape(emp.nickname || emp.full_name || emp.employee_code)} (${employeeEscape(emp.employee_code)}) · ${employeeEscape(emp.branch_id || '-')}</option>`;
+  }).join('');
+}
+
+function scheduleShiftOptions(includeOffLeave) {
+  let options = (scheduleCenterState.data.shifts || []).map(function(shift) {
+    return `<option value="${employeeEscape(shift.shift_id)}">${employeeEscape(shift.shift_name)} (${employeeEscape(shift.start_time)}-${employeeEscape(shift.end_time)})</option>`;
+  }).join('');
+  if (includeOffLeave) {
+    options += '<option value="OFF">วันหยุด</option><option value="LEAVE">ลา</option>';
+  }
+  return options;
+}
+
+function renderMonthlyScheduleForm() {
+  const periods = schedulePayrollPeriods();
+  return `
+    <div class="employee-form">
+      <div class="section-title">สร้างตารางทั้งรอบ</div>
+      <label>พนักงาน</label><select id="scMonthlyEmployee" class="employee-input"><option value="">เลือกพนักงาน</option>${scheduleEmployeeOptions()}</select>
+      <label>รอบทำงาน</label><select id="scMonthlyPeriod" class="employee-input">${periods.map(function(p) { return `<option value="${p.start}|${p.end}">${p.label}</option>`; }).join('')}</select>
+      <label>กะงาน</label><select id="scMonthlyShift" class="employee-input" onchange="syncMonthlyShiftTimes()">${scheduleShiftOptions(false)}</select>
+      <div class="employee-form-grid">
+        <div><label>เวลาเข้า</label><input id="scMonthlyStart" class="employee-input" type="text"></div>
+        <div><label>เวลาออก</label><input id="scMonthlyEnd" class="employee-input" type="text"></div>
+        <div><label>พัก (นาที)</label><input id="scMonthlyBreak" class="employee-input" type="number" value="60"></div>
+      </div>
+      <label>วันหยุดประจำสัปดาห์</label>
+      <div class="schedule-days">${scheduleWeekdayCheckboxes()}</div>
+      <button class="btn-save" onclick="submitMonthlyScheduleInAdmin()">สร้างตารางทั้งรอบ</button>
+    </div>`;
+}
+
+function renderDailyScheduleForm() {
+  return `
+    <div class="employee-form">
+      <div class="section-title">เพิ่มหรือแก้ตารางรายวัน</div>
+      <label>พนักงาน</label><select id="scDailyEmployee" class="employee-input"><option value="">เลือกพนักงาน</option>${scheduleEmployeeOptions()}</select>
+      <label>วันที่</label><input id="scDailyDate" class="employee-input" type="date" value="${employeeTodayText()}">
+      <label>ประเภทวัน/กะ</label><select id="scDailyShift" class="employee-input" onchange="syncDailyShiftTimes()">${scheduleShiftOptions(true)}</select>
+      <div id="scDailyTimeArea" class="employee-form-grid">
+        <div><label>เวลาเข้า</label><input id="scDailyStart" class="employee-input" type="text"></div>
+        <div><label>เวลาออก</label><input id="scDailyEnd" class="employee-input" type="text"></div>
+      </div>
+      <label>หมายเหตุ</label><input id="scDailyNote" class="employee-input" placeholder="เช่น เปลี่ยนเวลา หรือวันหยุดพิเศษ">
+      <button class="btn-save" onclick="submitDailyScheduleInAdmin()">บันทึกตารางรายวัน</button>
+    </div>`;
+}
+
+function scheduleWeekdayCheckboxes() {
+  const days = [['0','อาทิตย์'],['1','จันทร์'],['2','อังคาร'],['3','พุธ'],['4','พฤหัส'],['5','ศุกร์'],['6','เสาร์']];
+  return days.map(function(day) {
+    return `<label class="schedule-day"><input type="checkbox" name="scOffDay" value="${day[0]}">${day[1]}</label>`;
+  }).join('');
+}
+
+function selectedScheduleShift(selectId) {
+  const value = document.getElementById(selectId).value;
+  return (scheduleCenterState.data.shifts || []).find(function(shift) {
+    return String(shift.shift_id) === String(value);
+  }) || null;
+}
+
+function syncMonthlyShiftTimes() {
+  const shift = selectedScheduleShift('scMonthlyShift');
+  if (!shift) return;
+  document.getElementById('scMonthlyStart').value = shift.start_time || '';
+  document.getElementById('scMonthlyEnd').value = shift.end_time || '';
+  document.getElementById('scMonthlyBreak').value = shift.break_minutes || 60;
+}
+
+function syncDailyShiftTimes() {
+  const select = document.getElementById('scDailyShift');
+  const area = document.getElementById('scDailyTimeArea');
+  const isNoTime = select.value === 'OFF' || select.value === 'LEAVE';
+  area.style.display = isNoTime ? 'none' : 'grid';
+  if (isNoTime) return;
+  const shift = selectedScheduleShift('scDailyShift');
+  if (!shift) return;
+  document.getElementById('scDailyStart').value = shift.start_time || '';
+  document.getElementById('scDailyEnd').value = shift.end_time || '';
+}
+
+function scheduleValidTime(value) {
+  return value === '24:00' || /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+async function submitMonthlyScheduleInAdmin() {
+  const employeeCode = document.getElementById('scMonthlyEmployee').value;
+  const period = document.getElementById('scMonthlyPeriod').value.split('|');
+  const shiftId = document.getElementById('scMonthlyShift').value;
+  const startTime = document.getElementById('scMonthlyStart').value.trim();
+  const endTime = document.getElementById('scMonthlyEnd').value.trim();
+  const breakMinutes = document.getElementById('scMonthlyBreak').value;
+  const offDays = Array.from(document.querySelectorAll('input[name="scOffDay"]:checked')).map(function(el) { return el.value; });
+
+  if (!employeeCode || !period[0] || !period[1] || !shiftId) return alert('กรุณากรอกข้อมูลให้ครบ');
+  if (!scheduleValidTime(startTime) || !scheduleValidTime(endTime)) return alert('รูปแบบเวลาต้องเป็น HH:MM เช่น 09:00 หรือ 24:00');
+  if (!confirm('ยืนยันสร้างตารางทั้งรอบ? วันที่ที่มีอยู่แล้วจะถูกอัปเดต')) return;
+
+  await submitScheduleCenterAction('generateMonthlySchedule', {
+    line_uid: lineUid, employee_code: employeeCode,
+    period_start: period[0], period_end: period[1], shift_name: shiftId,
+    start_time: startTime, end_time: endTime, break_minutes: breakMinutes, off_days: offDays
+  }, 'monthly');
+}
+
+async function submitDailyScheduleInAdmin() {
+  const employeeCode = document.getElementById('scDailyEmployee').value;
+  const date = document.getElementById('scDailyDate').value;
+  const shiftId = document.getElementById('scDailyShift').value;
+  const noTime = shiftId === 'OFF' || shiftId === 'LEAVE';
+  const startTime = noTime ? '' : document.getElementById('scDailyStart').value.trim();
+  const endTime = noTime ? '' : document.getElementById('scDailyEnd').value.trim();
+  const note = document.getElementById('scDailyNote').value.trim();
+
+  if (!employeeCode || !date || !shiftId) return alert('กรุณากรอกข้อมูลให้ครบ');
+  if (!noTime && (!scheduleValidTime(startTime) || !scheduleValidTime(endTime))) return alert('รูปแบบเวลาต้องเป็น HH:MM เช่น 09:00 หรือ 24:00');
+  if (!confirm('ยืนยันบันทึกตารางของวันที่ ' + date + '?')) return;
+
+  await submitScheduleCenterAction('saveWorkSchedule', {
+    line_uid: lineUid, employee_code: employeeCode, date: date,
+    shift_name: shiftId, start_time: startTime, end_time: endTime,
+    break_minutes: noTime ? 0 : 60, note: note || 'แก้รายวันผ่าน Admin Center'
+  }, 'daily');
+}
+
+async function submitScheduleCenterAction(action, data, returnMode) {
+  try {
+    const res = await callApi({ action: action, data: data });
+    if (!res.success) return alert(res.message || 'บันทึกตารางไม่สำเร็จ');
+    alert(res.message || 'บันทึกตารางเรียบร้อยแล้ว');
+    scheduleCenterState.mode = returnMode;
+    drawScheduleCenter();
+  } catch (err) {
+    alert(err.message || err);
+  }
+}
+
+function schedulePayrollPeriods() {
+  const today = new Date();
+  const current = schedulePeriodRange(today);
+  const previousBase = new Date(current.startDate); previousBase.setDate(previousBase.getDate() - 1);
+  const nextBase = new Date(current.endDate); nextBase.setDate(nextBase.getDate() + 1);
+  const periods = [schedulePeriodRange(previousBase), current, schedulePeriodRange(nextBase)];
+  const labels = ['รอบก่อนหน้า', 'รอบปัจจุบัน', 'รอบถัดไป'];
+  return periods.map(function(period, index) {
+    return {
+      label: labels[index] + ': ' + formatDate(period.startDate) + ' - ' + formatDate(period.endDate),
+      start: employeeDateInput(period.startDate),
+      end: employeeDateInput(period.endDate)
+    };
+  });
+}
+
+function schedulePeriodRange(date) {
+  const d = new Date(date); const y = d.getFullYear(); const m = d.getMonth(); const day = d.getDate();
+  const start = day <= 20 ? new Date(y, m - 1, 21) : new Date(y, m, 21);
+  const end = day <= 20 ? new Date(y, m, 20) : new Date(y, m + 1, 20);
+  return { startDate: start, endDate: end };
+}
+
+function employeeDateInput(date) {
+  return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
 }
 
 </script>
