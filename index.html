@@ -596,6 +596,11 @@ function waitBeforeRetry(attempt) {
         return;
       }
 
+      if (startPage === 'attendancehistory') {
+        showPage('AttendanceHistory');
+        return;
+      }
+
       showPage('Attendance');
     }
 
