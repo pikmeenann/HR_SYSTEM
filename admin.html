@@ -3443,6 +3443,11 @@ function renderAttendancePeriodResult(res) {
       <b>${employeeEscape(res.branch_name || res.branch_id || '')}</b><br>
       รอบ ${employeeEscape(res.period_display || '')} · ${employees.length} คน
     </div>
+    <div class="notice" style="margin:0 0 14px">
+      <b>หมายเหตุ:</b> OT ที่แสดงเป็นการคำนวณคร่าว ๆ โดยระบบจากเวลาเข้าแรก–ออกสุดท้าย
+      หักเวลาพัก 1 ชั่วโมง และเวลาทำงานปกติ 8 ชั่วโมง ไม่ใช่ OT ที่ได้รับจริง
+      และไม่ใช้แทนการอนุมัติของหัวหน้างาน
+    </div>
     ${employees.map(function(employee) {
       return renderAttendanceEmployeeCalendar(employee, res.range_start, res.range_end);
     }).join('')}`;
@@ -3458,7 +3463,7 @@ function renderAttendanceEmployeeCalendar(employee, rangeStart, rangeEnd) {
         <div class="approval-meta">${employeeEscape(employee.employee_code || '')} · ${employeeEscape(employee.position || '')}</div>
         <div class="attendance-stat-grid">
           ${attendanceStat(summary.late_count, 'มาสาย ' + Number(summary.late_minutes || 0) + ' นาที', 'warn')}
-          ${attendanceStat(summary.ot_hours || '0.00', 'OT ชั่วโมง', '')}
+          ${attendanceStat(summary.estimated_ot_hours || '0.00', 'OT โดยประมาณ (ชม.)', '')}
           ${attendanceStat(summary.absent_count, 'ขาดงาน', 'danger')}
           ${attendanceStat(summary.leave_count, 'ลา', 'info')}
         </div>
@@ -3506,6 +3511,7 @@ function buildAttendanceCalendar(startText, endText, dailyMap, summaryMap) {
     const daySummary = summaryMap[dateText] || {};
     const status = String(daySummary.attendance_status || '').trim().toUpperCase();
     const lateMinutes = Number(daySummary.late_minutes || 0);
+    const estimatedOtMinutes = Number(daySummary.estimated_ot_minutes || 0);
     let className = '';
     let content = '';
 
@@ -3518,6 +3524,9 @@ function buildAttendanceCalendar(startText, endText, dailyMap, summaryMap) {
       content = 'เข้า ' + employeeEscape(attendanceFormatTime(dayData.check_in));
       if (dayData.check_out) content += '<br>ออก ' + employeeEscape(attendanceFormatTime(dayData.check_out));
       if (lateMinutes > 0) content += '<br>สาย ' + lateMinutes + ' นาที';
+      if (estimatedOtMinutes > 0) {
+        content += '<br><b>OT~ ' + employeeEscape(attendanceFormatMinutes_(estimatedOtMinutes)) + '</b>';
+      }
       if (!dayData.check_out) content += '<br>ไม่มีเวลาออก';
     }
     if (dateText === today) className += ' today';
@@ -3544,6 +3553,16 @@ function attendanceFormatTime(value) {
   const date = new Date(value);
   if (isNaN(date.getTime())) return String(value);
   return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function attendanceFormatMinutes_(minutes) {
+  const safeMinutes = Math.max(0, Math.round(Number(minutes || 0)));
+  const hours = Math.floor(safeMinutes / 60);
+  const remain = safeMinutes % 60;
+
+  if (hours && remain) return hours + 'ชม.' + remain + 'น.';
+  if (hours) return hours + 'ชม.';
+  return remain + 'น.';
 }
 
 </script>
