@@ -1982,16 +1982,43 @@ async function renderDocumentCenter() {
         ${doc.expire_date ? 'วันหมดอายุ: ' + formatDate(doc.expire_date) + '<br>' : ''}
         ${doc.note ? 'หมายเหตุ: ' + doc.note + '<br>' : ''}
 
-        ${
-          doc.file_url
-            ? `<button class="btn-save" onclick="window.open('${doc.file_url}', '_blank')">เปิดเอกสาร</button>`
-            : ''
-        }
+        <button class="btn-save" onclick="openEmployeeDocument('${employeeEscape(doc.doc_id || '')}')">เปิดเอกสาร</button>
       </div>
     `;
   });
 
   document.getElementById('app').innerHTML = html;
+}
+
+async function openEmployeeDocument(docId) {
+  const previewWindow = window.open('', '_blank');
+  if (previewWindow) {
+    previewWindow.document.write('<div style="font-family:Arial;padding:24px">กำลังเปิดเอกสาร...</div>');
+  }
+
+  try {
+    const res = await callApi({
+      action: 'getEmployeeDocumentFile',
+      line_uid: lineUid,
+      doc_id: docId
+    });
+    if (!res.success) return alert(res.message || 'เปิดเอกสารไม่สำเร็จ');
+
+    const binary = atob(res.base64_file || '');
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: res.mime_type || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    if (previewWindow) {
+      previewWindow.location.href = url;
+    } else {
+      alert('กรุณาอนุญาต Popup เพื่อเปิดเอกสาร');
+    }
+    setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+  } catch (err) {
+    if (previewWindow) previewWindow.close();
+    alert(err.message || err);
+  }
 }
 
 
@@ -2985,6 +3012,8 @@ function renderPendingEmployeeCards(rows) {
           ${employeeEscape(fullName || '-')}<br>
           เบอร์: ${employeeEscape(row.phone || '-')}<br>
           ประเภท: ${employeeEscape(row.employee_type || '-')} · ภาษา: ${employeeEscape(row.preferred_language || '-')}<br>
+          ธนาคาร: ${employeeEscape(row.bank_name || '-')}<br>
+          เอกสารประจำตัวและหน้าสมุดบัญชี: <b>${row.documents_complete ? 'ครบ' : 'ยังไม่ครบ'}</b><br>
           ตำแหน่ง: ${employeeEscape(row.position || '-')}<br>
           สมัครเมื่อ: ${employeeEscape(formatDateTime(row.register_datetime))}
         </div>
@@ -3294,21 +3323,21 @@ const attendanceCenterState = {
 };
 
 async function renderAttendanceCenter() {
-  attendanceCenterState.mode = 'daily';
+  attendanceCenterState.mode = 'period';
   attendanceCenterState.dailyDate = employeeTodayText();
   document.getElementById('app').innerHTML = '<div class="loading">กำลังโหลดข้อมูลการเข้างาน...</div>';
 
   try {
-    const results = await Promise.all([
-      callApi({ action: 'getHrAttendanceDailySummary', line_uid: lineUid, date: attendanceCenterState.dailyDate }),
-      callApi({ action: 'getHrAttendancePeriodFilterOptions', line_uid: lineUid })
-    ]);
-    if (!results[0].success) throw new Error(results[0].message || 'โหลดข้อมูลรายวันไม่สำเร็จ');
-    if (!results[1].success) throw new Error(results[1].message || 'โหลดตัวกรองไม่สำเร็จ');
+    const res = await callApi({
+      action: 'getHrAttendancePeriodFilterOptions',
+      line_uid: lineUid
+    });
+    if (!res.success) throw new Error(res.message || 'โหลดตัวกรองไม่สำเร็จ');
 
-    attendanceCenterState.dailyResult = results[0];
-    attendanceCenterState.branches = results[1].branches || [];
-    attendanceCenterState.periods = results[1].periods || [];
+    attendanceCenterState.dailyResult = null;
+    attendanceCenterState.periodResult = null;
+    attendanceCenterState.branches = res.branches || [];
+    attendanceCenterState.periods = res.periods || [];
     drawAttendanceCenter();
   } catch (err) {
     document.getElementById('app').innerHTML = `
