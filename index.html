@@ -1181,8 +1181,8 @@ function waitBeforeRetry(attempt) {
 
   document.getElementById('identityFileLabel').innerText =
     isThai
-      ? 'รูปด้านหน้าบัตรประชาชน'
-      : 'รูปหน้าพาสปอร์ต';
+      ? 'รูปด้านหน้าบัตรประชาชน (ส่งภายหลังได้)'
+      : 'รูปหน้าพาสปอร์ต (ส่งภายหลังได้)';
 }
 
 
@@ -1209,22 +1209,38 @@ function fileToBase64(file) {
   });
 }
 
-  async function submitRegistration() {
+async function submitRegistration() {
   if (window.isSubmitting) {
     return;
   }
 
+  /*
+   * อ่านค่าทั้งหมดจากฟอร์มก่อน
+   * ห้าม showLoading ก่อนจุดนี้
+   */
+  const branch =
+    document.getElementById('regBranch').value;
+
+  const nickname =
+    document.getElementById('regNickname').value.trim();
+
+  const firstName =
+    document.getElementById('regFirstName').value.trim();
+
+  const lastName =
+    document.getElementById('regLastName').value.trim();
+
+  const phone =
+    document.getElementById('regPhone').value.trim();
+
   const employeeType =
     document.getElementById('regEmployeeType').value;
 
+  const language =
+    document.getElementById('regLanguage').value;
+
   const isThai =
     employeeType === 'THAI';
-
-  const identityFile =
-    document.getElementById('regIdentityFile').files[0];
-
-  const bankProofFile =
-    document.getElementById('regBankProofFile').files[0];
 
   const nationalId =
     String(
@@ -1254,11 +1270,20 @@ function fileToBase64(file) {
       .value
       .trim();
 
+  const identityFile =
+    document.getElementById('regIdentityFile').files[0];
+
+  const bankProofFile =
+    document.getElementById('regBankProofFile').files[0];
+
+  /*
+   * ตรวจข้อมูลพื้นฐาน
+   */
   if (
-    !document.getElementById('regBranch').value ||
-    !document.getElementById('regNickname').value.trim() ||
-    !document.getElementById('regFirstName').value.trim() ||
-    !document.getElementById('regLastName').value.trim()
+    !branch ||
+    !nickname ||
+    !firstName ||
+    !lastName
   ) {
     alert(
       'กรุณากรอก สาขา / ชื่อเล่น / ชื่อจริง / นามสกุล'
@@ -1266,13 +1291,15 @@ function fileToBase64(file) {
     return;
   }
 
-  if (
-    !document.getElementById('regPhone').value.trim()
-  ) {
+  if (!phone) {
     alert('กรุณากรอกเบอร์โทร');
     return;
   }
 
+  /*
+   * เลขบัตรไม่บังคับ
+   * แต่ถ้ากรอก ต้องครบ 13 หลัก
+   */
   if (
     isThai &&
     nationalId &&
@@ -1284,6 +1311,10 @@ function fileToBase64(file) {
     return;
   }
 
+  /*
+   * เลขบัญชีไม่บังคับ
+   * แต่ถ้ากรอก ต้อง 9-15 หลัก
+   */
   if (
     bankAccountNo &&
     (
@@ -1300,17 +1331,18 @@ function fileToBase64(file) {
   try {
     window.isSubmitting = true;
 
-    showLoading(
-      'attendanceApp',
-      'กำลังเตรียมเอกสาร...'
-    );
-
+    /*
+     * อ่านไฟล์ก่อนเปลี่ยน DOM
+     */
     const identityBase64 =
       await fileToBase64(identityFile);
 
     const bankProofBase64 =
       await fileToBase64(bankProofFile);
 
+    /*
+     * สร้าง payload ให้เสร็จก่อน
+     */
     const data = {
       line_uid: lineUid,
 
@@ -1325,25 +1357,25 @@ function fileToBase64(file) {
           : '',
 
       home_branch_id:
-        document.getElementById('regBranch').value,
+        branch,
 
       nickname:
-        document.getElementById('regNickname').value.trim(),
+        nickname,
 
       first_name:
-        document.getElementById('regFirstName').value.trim(),
+        firstName,
 
       last_name:
-        document.getElementById('regLastName').value.trim(),
+        lastName,
 
       phone:
-        document.getElementById('regPhone').value.trim(),
+        phone,
 
       employee_type:
         employeeType,
 
       preferred_language:
-        document.getElementById('regLanguage').value,
+        language,
 
       position:
         'Staff',
@@ -1366,23 +1398,26 @@ function fileToBase64(file) {
       identity_base64_file:
         identityBase64,
 
+      identity_mime_type:
+        identityFile
+          ? identityFile.type
+          : 'image/jpeg',
+
       bank_proof_base64_file:
         bankProofBase64,
 
-      identity_mime_type:
-  identityFile
-    ? identityFile.type
-    : 'image/jpeg',
-
       bank_proof_mime_type:
-  bankProofFile
-    ? bankProofFile.type
-    : 'image/jpeg',
+        bankProofFile
+          ? bankProofFile.type
+          : 'image/jpeg',
 
       note:
         'สมัครผ่าน LIFF'
     };
 
+    /*
+     * ตอนนี้ค่อยเปลี่ยนหน้า
+     */
     showLoading(
       'attendanceApp',
       'กำลังส่งข้อมูลให้ HR...'
