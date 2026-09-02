@@ -997,116 +997,427 @@ function waitBeforeRetry(attempt) {
     }
 
     function renderRegistrationForm() {
-      const app = document.getElementById('attendanceApp');
+  const app = document.getElementById('attendanceApp');
 
-      app.innerHTML = `
-        <div class="hello">สมัครเข้าระบบพนักงาน</div>
-        <div class="sub">กรอกข้อมูลเบื้องต้นเพื่อให้ HR อนุมัติ</div>
+  app.innerHTML = `
+    <div class="hello">สมัครเข้าระบบพนักงาน</div>
+    <div class="sub">กรอกข้อมูลพื้นฐานเพื่อสมัครเข้าระบบ
+    ข้อมูลบัตรประชาชนและบัญชีธนาคารสามารถส่งเพิ่มเติมภายหลังได้
+    </div>
 
-        <label>สาขา</label>
-        <select id="regBranch" class="input">
-          <option value="">เลือกสาขา</option>
-          <option value="P CL">P CL - PikMee ชิดลม</option>
-          <option value="P LP">P LP - PikMee ลาดพร้าว</option>
-          <option value="P PK">P PK - PikMee ปิ่นเกล้า</option>
-          <option value="P BN">P BN - PikMee บางนา</option>
-          <option value="P R9">P R9 - PikMee พระราม9</option>
-          <option value="P R3">P R3 - PikMee พระราม3</option>
-          <option value="P EV">P EV - PikMee อีสท์วิลล์</option>
-          <option value="P FI">P FI - PikMee แฟชั่น</option>
-          <option value="P SC">P SC - PikMee สีลม</option>
-          <option value="P R2">P R2 - PikMee พระราม2</option>
-          <option value="C LP">C LP - CadoCado ลาดพร้าว</option>
-          <option value="C PK">C PK - CadoCado ปิ่นเกล้า</option>
-          <option value="C EV">C EV - CadoCado อีสท์วิลล์</option>
-          <option value="C R9">C R9 - CadoCado พระราม9</option>
-          <option value="C R2">C R2 - CadoCado พระราม2</option>
-          <option value="C BN">C BN - CadoCado บางนา</option>
-          <option value="C CL">C CL - CadoCado ชิดลม</option>
-          <option value="C R3">C R3 - CadoCado พระราม3</option>
-        </select>
+    <label>สาขา</label>
+    <select id="regBranch" class="input">
+      <option value="">เลือกสาขา</option>
+      <option value="P CL">P CL - PikMee ชิดลม</option>
+      <option value="P LP">P LP - PikMee ลาดพร้าว</option>
+      <option value="P PK">P PK - PikMee ปิ่นเกล้า</option>
+      <option value="P BN">P BN - PikMee บางนา</option>
+      <option value="P R9">P R9 - PikMee พระราม9</option>
+      <option value="P R3">P R3 - PikMee พระราม3</option>
+      <option value="P EV">P EV - PikMee อีสท์วิลล์</option>
+      <option value="P FI">P FI - PikMee แฟชั่น</option>
+      <option value="P SC">P SC - PikMee สีลม</option>
+      <option value="P R2">P R2 - PikMee พระราม2</option>
 
-        <label>ชื่อเล่น</label>
-        <input id="regNickname" class="input" placeholder="เช่น น้ำ">
+      <option value="C LP">C LP - CadoCado ลาดพร้าว</option>
+      <option value="C PK">C PK - CadoCado ปิ่นเกล้า</option>
+      <option value="C EV">C EV - CadoCado อีสท์วิลล์</option>
+      <option value="C R9">C R9 - CadoCado พระราม9</option>
+      <option value="C R2">C R2 - CadoCado พระราม2</option>
+      <option value="C BN">C BN - CadoCado บางนา</option>
+      <option value="C CL">C CL - CadoCado ชิดลม</option>
+      <option value="C R3">C R3 - CadoCado พระราม3</option>
+    </select>
 
-        <label>ชื่อจริง</label>
-        <input id="regFirstName" class="input" placeholder="ชื่อจริง">
+    <label>ชื่อเล่น</label>
+    <input id="regNickname" class="input" placeholder="เช่น น้ำ">
 
-        <label>นามสกุล</label>
-        <input id="regLastName" class="input" placeholder="นามสกุล">
+    <label>ชื่อจริง</label>
+    <input id="regFirstName" class="input" placeholder="ชื่อจริง">
 
-        <label>เบอร์โทร</label>
-        <input id="regPhone" class="input" placeholder="เบอร์ที่ติดต่อได้" inputmode="tel">
+    <label>นามสกุล</label>
+    <input id="regLastName" class="input" placeholder="นามสกุล">
 
-        <label>ประเภทพนักงาน</label>
-        <select id="regEmployeeType" class="input">
-          <option value="THAI">คนไทย</option>
-          <option value="FOREIGN_REGISTERED">ต่างชาติ มีเอกสาร</option>
-          <option value="FOREIGN_UNREGISTERED">ต่างชาติ รอเอกสาร</option>
-        </select>
+    <label>เบอร์โทร</label>
+    <input
+      id="regPhone"
+      class="input"
+      placeholder="เบอร์ที่ติดต่อได้"
+      inputmode="tel"
+    >
 
-        <label>ภาษา</label>
-        <select id="regLanguage" class="input">
-          <option value="TH">ไทย</option>
-          <option value="MM">พม่า</option>
-          <option value="LA">ลาว</option>
-          <option value="EN">อังกฤษ</option>
-        </select>
+    <label>ประเภทพนักงาน</label>
+    <select
+      id="regEmployeeType"
+      class="input"
+      onchange="updateRegistrationIdentityFields()"
+    >
+      <option value="THAI">คนไทย</option>
+      <option value="FOREIGN_REGISTERED">ต่างชาติ มีเอกสาร</option>
+      <option value="FOREIGN_UNREGISTERED">ต่างชาติ รอเอกสาร</option>
+    </select>
 
-        <button class="btn" onclick="submitRegistration()">ส่งข้อมูลให้ HR</button>
+    <div id="thaiIdentityArea">
+      <label>เลขบัตรประชาชน 13 หลัก</label>
+      <input
+        id="regNationalId"
+        class="input"
+        inputmode="numeric"
+        maxlength="17"
+        placeholder="กรอกเลขบัตรประชาชน 13 หลัก"
+      >
+    </div>
 
-        <div class="note">
-          หลังส่งข้อมูลแล้ว กรุณารอ HR ตรวจสอบและอนุมัติก่อนใช้งานระบบเช็คอิน
-        </div>
-      `;
+    <div id="foreignIdentityArea" style="display:none;">
+      <label>เลขพาสปอร์ต</label>
+      <input
+        id="regPassportNo"
+        class="input"
+        placeholder="Passport No."
+        autocapitalize="characters"
+      >
+    </div>
+
+    <label id="identityFileLabel"> รูปบัตรประชาชน / Passport (ส่งภายหลังได้)</label>
+    <input
+      id="regIdentityFile"
+      class="input"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+    >
+
+    <div class="note">
+      คนไทย: แนบรูปด้านหน้าบัตรประชาชน<br>
+      ต่างชาติ: แนบหน้าพาสปอร์ตที่มีข้อมูลส่วนตัว
+    </div>
+
+    <label>ธนาคาร</label>
+
+    <div id="thaiBankArea">
+      <input
+        class="input"
+        value="ไทยพาณิชย์ (SCB)"
+        disabled
+      >
+    </div>
+
+    <div id="foreignBankArea" style="display:none;">
+      <select id="regForeignBank" class="input">
+        <option value="">เลือกธนาคาร</option>
+        <option value="SCB">ไทยพาณิชย์ (SCB)</option>
+        <option value="KBANK">กสิกรไทย (KBANK)</option>
+        <option value="KTB">กรุงไทย (KTB)</option>
+        <option value="BBL">กรุงเทพ (BBL)</option>
+        <option value="BAY">กรุงศรี (BAY)</option>
+        <option value="TTB">ทีเอ็มบีธนชาต (TTB)</option>
+        <option value="GSB">ออมสิน (GSB)</option>
+        <option value="OTHER">ธนาคารอื่น</option>
+      </select>
+    </div>
+
+    <label>เลขบัญชีธนาคาร</label>
+    <input
+      id="regBankAccountNo"
+      class="input"
+      inputmode="numeric"
+      placeholder="เลขบัญชีธนาคาร"
+    >
+
+    <label>ชื่อบัญชีธนาคาร</label>
+    <input
+      id="regBankAccountName"
+      class="input"
+      placeholder="ชื่อ-นามสกุล ตามบัญชีธนาคาร"
+    >
+
+    <label> รูปหน้าสมุดบัญชี / หลักฐานบัญชี (ส่งภายหลังได้)</label>
+    <input
+      id="regBankProofFile"
+      class="input"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+    >
+
+    <label>ภาษา</label>
+    <select id="regLanguage" class="input">
+      <option value="TH">ไทย</option>
+      <option value="MM">พม่า</option>
+      <option value="LA">ลาว</option>
+      <option value="EN">อังกฤษ</option>
+    </select>
+
+    <button class="btn" onclick="submitRegistration()">
+      ส่งข้อมูลให้ HR
+    </button>
+
+    <div class="note">
+    หากยังไม่มีบัตรประชาชน Passport
+    หรือข้อมูลบัญชีธนาคาร สามารถส่งสมัครก่อนได้
+    และกลับมาเพิ่มข้อมูลภายหลัง
+    </div>
+  `;
+
+  updateRegistrationIdentityFields();
+}
+
+    function updateRegistrationIdentityFields() {
+  const employeeType =
+    document.getElementById('regEmployeeType').value;
+
+  const isThai =
+    employeeType === 'THAI';
+
+  document.getElementById('thaiIdentityArea').style.display =
+    isThai ? 'block' : 'none';
+
+  document.getElementById('foreignIdentityArea').style.display =
+    isThai ? 'none' : 'block';
+
+  document.getElementById('thaiBankArea').style.display =
+    isThai ? 'block' : 'none';
+
+  document.getElementById('foreignBankArea').style.display =
+    isThai ? 'none' : 'block';
+
+  document.getElementById('identityFileLabel').innerText =
+    isThai
+      ? 'รูปด้านหน้าบัตรประชาชน'
+      : 'รูปหน้าพาสปอร์ต';
+}
+
+
+function fileToBase64(file) {
+  return new Promise(function(resolve, reject) {
+    if (!file) {
+      resolve('');
+      return;
     }
 
-    async function submitRegistration() {
-      const data = {
-        line_uid: lineUid,
-        line_display_name: lineProfile ? lineProfile.displayName : '',
-        line_picture_url: lineProfile ? lineProfile.pictureUrl : '',
-        home_branch_id: document.getElementById('regBranch').value,
-        nickname: document.getElementById('regNickname').value.trim(),
-        first_name: document.getElementById('regFirstName').value.trim(),
-        last_name: document.getElementById('regLastName').value.trim(),
-        phone: document.getElementById('regPhone').value.trim(),
-        employee_type: document.getElementById('regEmployeeType').value,
-        preferred_language: document.getElementById('regLanguage').value,
-        position: 'Staff',
-        note: 'สมัครผ่าน LIFF'
-      };
+    const reader = new FileReader();
 
-      if (!data.home_branch_id || !data.nickname || !data.first_name || !data.last_name) {
-        alert('กรุณากรอก สาขา / ชื่อเล่น / ชื่อจริง / นามสกุล');
-        return;
-      }
+    reader.onload = function() {
+      resolve(reader.result || '');
+    };
 
-      showLoading('attendanceApp', 'กำลังส่งข้อมูลให้ HR...');
+    reader.onerror = function() {
+      reject(
+        new Error('ไม่สามารถอ่านไฟล์ได้ กรุณาเลือกไฟล์ใหม่')
+      );
+    };
 
-      try {
-        const res = await callApi({
-          action: 'registerEmployeeRequest',
-          data: data
-        });
+    reader.readAsDataURL(file);
+  });
+}
 
-        if (!res.success) {
-          showError('attendanceApp', res.message || 'ส่งข้อมูลไม่สำเร็จ');
-          return;
-        }
+  async function submitRegistration() {
+  if (window.isSubmitting) {
+    return;
+  }
 
-        document.getElementById('attendanceApp').innerHTML = `
-          <div class="hello">ส่งข้อมูลเรียบร้อย</div>
-          <div class="pill">
-            ระบบได้รับข้อมูลสมัครของคุณแล้ว<br>
-            กรุณารอ HR ตรวจสอบและอนุมัติ
-          </div>
-        `;
+  const employeeType =
+    document.getElementById('regEmployeeType').value;
 
-      } catch (err) {
-        showError('attendanceApp', err.message || err);
-      }
+  const isThai =
+    employeeType === 'THAI';
+
+  const identityFile =
+    document.getElementById('regIdentityFile').files[0];
+
+  const bankProofFile =
+    document.getElementById('regBankProofFile').files[0];
+
+  const nationalId =
+    String(
+      document.getElementById('regNationalId').value || ''
+    ).replace(/\D/g, '');
+
+  const passportNo =
+    String(
+      document.getElementById('regPassportNo').value || ''
+    )
+      .trim()
+      .toUpperCase();
+
+  const bankName =
+    isThai
+      ? 'SCB'
+      : document.getElementById('regForeignBank').value;
+
+  const bankAccountNo =
+    String(
+      document.getElementById('regBankAccountNo').value || ''
+    ).replace(/\D/g, '');
+
+  const bankAccountName =
+    document
+      .getElementById('regBankAccountName')
+      .value
+      .trim();
+
+  if (
+    !document.getElementById('regBranch').value ||
+    !document.getElementById('regNickname').value.trim() ||
+    !document.getElementById('regFirstName').value.trim() ||
+    !document.getElementById('regLastName').value.trim()
+  ) {
+    alert(
+      'กรุณากรอก สาขา / ชื่อเล่น / ชื่อจริง / นามสกุล'
+    );
+    return;
+  }
+
+  if (
+    !document.getElementById('regPhone').value.trim()
+  ) {
+    alert('กรุณากรอกเบอร์โทร');
+    return;
+  }
+
+  if (
+    isThai &&
+    nationalId &&
+    nationalId.length !== 13
+  ) {
+    alert(
+      'หากกรอกเลขบัตรประชาชน กรุณากรอกให้ครบ 13 หลัก'
+    );
+    return;
+  }
+
+  if (
+    bankAccountNo &&
+    (
+      bankAccountNo.length < 9 ||
+      bankAccountNo.length > 15
+    )
+  ) {
+    alert(
+      'หากกรอกเลขบัญชี กรุณาตรวจสอบเลขบัญชีธนาคาร'
+    );
+    return;
+  }
+
+  try {
+    window.isSubmitting = true;
+
+    showLoading(
+      'attendanceApp',
+      'กำลังเตรียมเอกสาร...'
+    );
+
+    const identityBase64 =
+      await fileToBase64(identityFile);
+
+    const bankProofBase64 =
+      await fileToBase64(bankProofFile);
+
+    const data = {
+      line_uid: lineUid,
+
+      line_display_name:
+        lineProfile
+          ? lineProfile.displayName
+          : '',
+
+      line_picture_url:
+        lineProfile
+          ? lineProfile.pictureUrl
+          : '',
+
+      home_branch_id:
+        document.getElementById('regBranch').value,
+
+      nickname:
+        document.getElementById('regNickname').value.trim(),
+
+      first_name:
+        document.getElementById('regFirstName').value.trim(),
+
+      last_name:
+        document.getElementById('regLastName').value.trim(),
+
+      phone:
+        document.getElementById('regPhone').value.trim(),
+
+      employee_type:
+        employeeType,
+
+      preferred_language:
+        document.getElementById('regLanguage').value,
+
+      position:
+        'Staff',
+
+      national_id:
+        isThai ? nationalId : '',
+
+      passport_no:
+        isThai ? '' : passportNo,
+
+      bank_name:
+        bankName,
+
+      bank_account_no:
+        bankAccountNo,
+
+      bank_account_name:
+        bankAccountName,
+
+      identity_base64_file:
+        identityBase64,
+
+      identity_mime_type:
+        identityFile.type || 'image/jpeg',
+
+      bank_proof_base64_file:
+        bankProofBase64,
+
+      bank_proof_mime_type:
+        bankProofFile.type || 'image/jpeg',
+
+      note:
+        'สมัครผ่าน LIFF'
+    };
+
+    showLoading(
+      'attendanceApp',
+      'กำลังส่งข้อมูลให้ HR...'
+    );
+
+    const res = await callApi({
+      action: 'registerEmployeeRequest',
+      data: data
+    });
+
+    if (!res.success) {
+      showError(
+        'attendanceApp',
+        res.message || 'ส่งข้อมูลไม่สำเร็จ'
+      );
+      return;
     }
+
+    document.getElementById(
+      'attendanceApp'
+    ).innerHTML = `
+      <div class="hello">ส่งข้อมูลเรียบร้อย</div>
+
+      <div class="pill">
+        ระบบได้รับข้อมูลสมัครของคุณแล้ว<br>
+        กรุณารอ HR ตรวจสอบและอนุมัติ
+      </div>
+    `;
+
+  } catch (err) {
+    showError(
+      'attendanceApp',
+      err.message || err
+    );
+
+  } finally {
+    window.isSubmitting = false;
+  }
+}
 
     async function loadProfile() {
       loadedProfile = true;
