@@ -1366,14 +1366,18 @@ function fileToBase64(file) {
       identity_base64_file:
         identityBase64,
 
-      identity_mime_type:
-        identityFile.type || 'image/jpeg',
-
       bank_proof_base64_file:
         bankProofBase64,
 
+      identity_mime_type:
+  identityFile
+    ? identityFile.type
+    : 'image/jpeg',
+
       bank_proof_mime_type:
-        bankProofFile.type || 'image/jpeg',
+  bankProofFile
+    ? bankProofFile.type
+    : 'image/jpeg',
 
       note:
         'สมัครผ่าน LIFF'
